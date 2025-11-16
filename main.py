@@ -342,11 +342,24 @@ async def addplayer(interaction: discord.Interaction, member: discord.Member):
     role = discord.utils.get(interaction.guild.roles, name="PPE Player")
     if not role:
         await interaction.response.send_message("❌ PPE Player role not found. Create it first.")
+
+    guild_id = interaction.guild.id
+    records = await load_player_records(guild_id)
+    key = member.display_name.lower()
+
     if role in member.roles:
+        records[key]["is_member"] = True
+        await save_player_records(guild_id=guild_id, records=records)
+
         await interaction.response.send_message(f"⚠️ `{member.display_name}` already has the `PPE Player` role.")
 
     try:
         await member.add_roles(role)
+    
+        # Confirm removal
+        # del records[key]
+        records[key]["is_member"] = True
+        await save_player_records(guild_id=guild_id, records=records)
         await interaction.response.send_message(f"✅ Added `{member.display_name}` to the PPE contest. They can now use PPE commands.")
     except discord.Forbidden:
         await interaction.response.send_message("❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy.")
