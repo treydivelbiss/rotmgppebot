@@ -131,16 +131,7 @@ async def on_ready():
             )
         """)
         await db.commit()
-    # # clear global commands
-    # await bot.tree.sync()           # Make sure we fetch the existing global cmds
-    # bot.tree.clear_commands(guild=None)       # Clear them locally
-    # await bot.tree.sync()           # Push the cleared state (removes globals)
-    # print("Loaded commands:", [cmd.name for cmd in bot.tree.get_commands()])
 
-    # print("Bot ready. Syncing slash commands...")
-    # for gid in [SERVER1_ID, SERVER2_ID]:
-    #     await bot.tree.sync(guild=discord.Object(id=gid))
-    # print("Slash commands synced to guilds!")
 
 @bot.tree.command(name="ping", description="Replies with Pong!", guilds=guilds)
 async def ping(interaction: discord.Interaction):
@@ -165,6 +156,9 @@ async def newppe(interaction: discord.Interaction, class_name: str):
 
     # players can make ppe
 
+    # if key not in records, make new entry
+    if key not in records:
+        records[key] = {"ppes": [], "active_ppe": None}
     player_data = records[key]
 
     # --- PPE limit check ---
@@ -174,6 +168,7 @@ async def newppe(interaction: discord.Interaction, class_name: str):
             "⚠️ You’ve reached the limit of `10 PPEs`. "
             "Delete or reuse an existing one before making a new one."
         )
+
 
     # --- Create new PPE ---
     next_id = max((ppe["id"] for ppe in player_data["ppes"]), default=0) + 1
