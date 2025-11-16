@@ -177,7 +177,7 @@ async def newppe(interaction: discord.Interaction, class_name: str):
         "id": next_id,
         # "name": f"PPE #{next_id}",
         # "class": class_name,      # ⬅️ STORED CLASS NAME
-        "name": f"{class_name} PPE #{next_id}",
+        "name": class_name,
         "points": 0,
         "items": []
     }
@@ -308,8 +308,8 @@ async def addpoints(interaction: discord.Interaction, amount: float):
     active_ppe["points"] += amount
     await save_player_records(guild_id=guild_id, records=records)
 
-    await interaction.response.send_message(f"✅ Added `{amount:.1f}` points to your active PPE (PPE #{active_id}).\n"
-                    f"`New total:` {active_ppe['points']:.1f} points.")
+    await interaction.response.send_message(f"✅ Added `{amount:.1f}` points to your active PPE (`{active_ppe["name"]}`).\n"
+                    f"New total: `{active_ppe['points']:.1f}` points.")
 
 
 @bot.tree.command(name="listplayers", description="Show all current participants in the PPE contest.", guilds=guilds)
@@ -351,7 +351,7 @@ async def addplayer(interaction: discord.Interaction, member: discord.Member):
         records[key]["is_member"] = True
         await save_player_records(guild_id=guild_id, records=records)
 
-        await interaction.response.send_message(f"⚠️ `{member.display_name}` already has the `PPE Player` role.")
+        return await interaction.response.send_message(f"⚠️ `{member.display_name}` already has the `PPE Player` role.")
 
     try:
         await member.add_roles(role)
@@ -360,7 +360,7 @@ async def addplayer(interaction: discord.Interaction, member: discord.Member):
         # del records[key]
         records[key]["is_member"] = True
         await save_player_records(guild_id=guild_id, records=records)
-        await interaction.response.send_message(f"✅ Added `{member.display_name}` to the PPE contest. They can now use PPE commands.")
+        return await interaction.response.send_message(f"✅ Added `{member.display_name}` to the PPE contest. They can now use PPE commands.")
     except discord.Forbidden:
         await interaction.response.send_message("❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy.")
 
@@ -369,23 +369,32 @@ async def addplayer(interaction: discord.Interaction, member: discord.Member):
 # @commands.has_role("PPE Admin")
 @require_ppe_roles(admin_required=True)
 async def removeplayer(interaction: discord.Interaction, member: discord.Member):
-    ok, error = await remove_ppe_player_role(interaction, member)
-    if not ok:
-        return await interaction.response.send_message(error)
+    role = discord.utils.get(interaction.guild.roles, name="PPE Player")
+    if not role:
+        await interaction.response.send_message("❌ PPE Player role not found. Create it first.")
 
     guild_id = interaction.guild.id
     records = await load_player_records(guild_id)
     key = member.display_name.lower()
 
-    if key not in records or not records[key].get("is_member", False):
-        return await interaction.response.send_message(f"❌ {member.display_name} is not in the PPE contest.")
+    if role not in member.roles:
+        records[key]["is_member"] = False
+        await save_player_records(guild_id=guild_id, records=records)
 
-    # Confirm removal
-    # del records[key]
-    records[key]["is_member"] = False
-    await save_player_records(guild_id=guild_id, records=records)
+        return await interaction.response.send_message(f"⚠️ `{member.display_name}` already does not have the `PPE Player` role.")
 
-    await interaction.response.send_message(f"🗑️ Removed `{member.display_name}` and all their PPE data from the contest.")
+    try:
+        await member.remove_roles(role)
+    
+        # Confirm removal
+        # del records[key]
+        records[key]["is_member"] = False
+        await save_player_records(guild_id=guild_id, records=records)
+        return await interaction.response.send_message(f"✅ Removed `{member.display_name}` from the PPE contest. They will no longer show on leaderboards or be able to use PPE commands.")
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy.")
+
+    
 
 
 
@@ -420,6 +429,9 @@ async def leaderboard(interaction: discord.Interaction):
 
     leaderboard_data = []
     for player, data in records.items():
+        # if player is not a contest member, skip
+        if not data.get("is_member", False):
+            continue
         if not data["ppes"]:
             continue
         best_ppe = max(data["ppes"], key=lambda p: p["points"])
@@ -599,21 +611,6 @@ async def remove_ppe_admin_role(interaction: discord.Interaction, member: discor
     except discord.Forbidden:
         await interaction.response.send_message("❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy.")
 
-
-# --- Remove PPE Player role ---
-# @bot.command(name="removeppeplayerrole", help="Remove the PPE Player role from a member. Admin only.")
-# @commands.has_role("PPE Admin")
-@require_ppe_roles(admin_required=True)
-async def remove_ppe_player_role(interaction: discord.Interaction, member: discord.Member):
-    role = discord.utils.get(interaction.guild.roles, name="PPE Player")
-    if not role:
-        return False, "❌ PPE Player role not found."
-
-    try:
-        await member.remove_roles(role)
-        return True, None
-    except discord.Forbidden:
-        return False, "❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy."
 
 # --- Command: list roles ---
 @bot.tree.command(name="listroles", description="List all roles in this server.", guilds=guilds)
