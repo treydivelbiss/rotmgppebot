@@ -1,52 +1,56 @@
 import os
 import json
 import asyncio
+from dotenv import load_dotenv
+from pymongo import MongoClient
 
-# Directory to store per-guild player data
-DATA_DIR = "./data"
-os.makedirs(DATA_DIR, exist_ok=True)
+# -------------------------------------------------------------------------
+# MongoDB Setup
+# -------------------------------------------------------------------------
 
-# Dictionary of asyncio Locks — one per guild
+load_dotenv()
+MONGO_URI = os.getenv("MONGO_URI")
+
+client = MongoClient(MONGO_URI)
+db = client["PPEBotDB"]
+collection = db["PPEPlayerData"]
+
+# Locks (still needed for async safety)
 _locks = {}
 
 def get_lock(guild_id: int):
-    """Return or create a lock for this guild."""
     if guild_id not in _locks:
         _locks[guild_id] = asyncio.Lock()
     return _locks[guild_id]
 
-def get_guild_data_path(guild_id: int) -> str:
-    """Return the file path for this guild's data file."""
-    return os.path.join(DATA_DIR, f"{guild_id}_loot_records.json")
-
 
 # -------------------------------------------------------------------------
-# Core read/write functions
+# MongoDB helpers
 # -------------------------------------------------------------------------
 
 async def load_player_records(guild_id: int):
-    """Load player records for a specific guild safely."""
-    path = get_guild_data_path(guild_id)
-    if not os.path.exists(path):
-        return {}
-
+    """Load the 'records' JSON object for a guild from MongoDB."""
     async with get_lock(guild_id):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except json.JSONDecodeError:
+        doc = collection.find_one({"guild_id": guild_id})
+        if not doc:
             return {}
 
+        # Return the stored records dict
+        return doc.get("records", {})
+
+
 async def save_player_records(guild_id: int, records: dict):
-    """Save player records for a specific guild safely."""
-    path = get_guild_data_path(guild_id)
+    """Save (upsert) the 'records' JSON object for this guild."""
     async with get_lock(guild_id):
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(records, f, indent=2)
+        collection.update_one(
+            {"guild_id": guild_id},
+            {"$set": {"records": records}},
+            upsert=True
+        )
 
 
 # -------------------------------------------------------------------------
-# Player utilities
+# Player utilities (unchanged)
 # -------------------------------------------------------------------------
 
 def ensure_player_exists(records: dict, player_name: str):
@@ -56,6 +60,7 @@ def ensure_player_exists(records: dict, player_name: str):
         records[key] = {"ppes": [], "active_ppe": None}
     return key
 
+
 def get_active_ppe(player_data: dict):
     """Return the active PPE dict, or None."""
     active_id = player_data.get("active_ppe")
@@ -63,4 +68,3 @@ def get_active_ppe(player_data: dict):
         if ppe["id"] == active_id:
             return ppe
     return None
-
