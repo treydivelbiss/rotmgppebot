@@ -163,11 +163,7 @@ async def newppe(interaction: discord.Interaction, class_name: str):
     records = await load_player_records(guild_id)
     key = interaction.user.display_name.lower()
 
-    # --- Check membership ---
-    if key not in records or not records[key].get("is_member", False):
-        return await interaction.response.send_message(
-            "❌ You’re not part of the PPE contest. Ask a mod to add you with `/addplayer @you`."
-        )
+    # players can make ppe
 
     player_data = records[key]
 
@@ -343,38 +339,23 @@ async def listplayers(interaction: discord.Interaction):
     await interaction.response.send_message("\n".join(lines))
 
 
-@bot.tree.command(name="addplayer", description="Add a player to the PPE contest and create their first active PPE.", guilds=guilds)
+@bot.tree.command(name="addplayer", description="Add a player to the PPE contest.", guilds=guilds)
 # @commands.has_role("PPE Admin")
 @require_ppe_roles(admin_required=True)
 async def addplayer(interaction: discord.Interaction, member: discord.Member):
-    ok, error = await give_ppe_player_role(interaction, member)
-    if not ok:
-        return await interaction.response.send_message(error)
-    
-    """
-    Adds a new member to the PPE contest.
-    - Creates their first PPE (PPE #1)
-    - Sets it active
-    - Gives them access to all PPE commands
-    """
-    guild_id = interaction.guild.id
-    records = await load_player_records(guild_id)
-    key = member.display_name.lower()
+    """Gives the PPE Player role silently and lets the caller handle responses."""
+    role = discord.utils.get(interaction.guild.roles, name="PPE Player")
+    if not role:
+        await interaction.response.send_message("❌ PPE Player role not found. Create it first.")
+    if role in member.roles:
+        await interaction.response.send_message(f"⚠️ `{member.display_name}` already has the `PPE Player` role.")
 
-    if key in records:
-        return await interaction.response.send_message(f"⚠️ {member.display_name} is already in the PPE contest.")
+    try:
+        await member.add_roles(role)
+        await interaction.response.send_message(f"✅ Added `{member.display_name}` to the PPE contest. They can now use PPE commands.")
+    except discord.Forbidden:
+        await interaction.response.send_message("❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy.")
 
-    # # Create player entry
-    # records[key] = {
-    #     "ppes": [
-    #         {"id": 1, "name": "PPE #1", "points": 0, "items": []}
-    #     ],
-    #     "active_ppe": 1,
-    #     "is_member": True  # mark as officially added
-    # }
-
-    await save_player_records(guild_id=guild_id, records=records)
-    await interaction.response.send_message(f"✅ Added `{member.display_name}` to the PPE contest and created `PPE #1` as their active PPE.")
 
 @bot.tree.command(name="removeplayer", description="Remove a player and all their PPE data from the contest.", guilds=guilds)
 # @commands.has_role("PPE Admin")
@@ -593,21 +574,6 @@ async def give_ppe_admin_role(interaction: discord.Interaction, member: discord.
     except discord.Forbidden:
         await interaction.response.send_message("❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy.")
 
-# --- Give PPE Player role ---
-# @bot.command(name="giveppeplayerrole", help="Give the PPE Player role to a member. Admin only.")
-# @commands.has_role("PPE Admin")
-@require_ppe_roles(admin_required=True)
-async def give_ppe_player_role(interaction: discord.Interaction, member: discord.Member):
-    """Gives the PPE Player role silently and lets the caller handle responses."""
-    role = discord.utils.get(interaction.guild.roles, name="PPE Player")
-    if not role:
-        return False, "❌ PPE Player role not found. Create it first."
-
-    try:
-        await member.add_roles(role)
-        return True, None
-    except discord.Forbidden:
-        return False, "❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy."
 
 # --- Remove PPE Admin role ---
 @bot.tree.command(name="removeppeadminrole", description="Remove the PPE Admin role from a member. Admin only.", guilds=guilds)
