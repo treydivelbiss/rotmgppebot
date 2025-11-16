@@ -301,7 +301,10 @@ async def listplayers(interaction: discord.Interaction):
 # @commands.has_role("PPE Admin")
 @require_ppe_roles(admin_required=True)
 async def addplayer(interaction: discord.Interaction, member: discord.Member):
-    await give_ppe_player_role(interaction, member)
+    ok, error = await give_ppe_player_role(interaction, member)
+    if not ok:
+        return await interaction.response.send_message(error)
+    
     """
     Adds a new member to the PPE contest.
     - Creates their first PPE (PPE #1)
@@ -331,7 +334,10 @@ async def addplayer(interaction: discord.Interaction, member: discord.Member):
 # @commands.has_role("PPE Admin")
 @require_ppe_roles(admin_required=True)
 async def removeplayer(interaction: discord.Interaction, member: discord.Member):
-    await remove_ppe_player_role(interaction, member)
+    ok, error = await remove_ppe_player_role(interaction, member)
+    if not ok:
+        return await interaction.response.send_message(error)
+
     guild_id = interaction.guild.id
     records = await load_player_records(guild_id)
     key = member.display_name.lower()
@@ -546,16 +552,16 @@ async def give_ppe_admin_role(interaction: discord.Interaction, member: discord.
 # @commands.has_role("PPE Admin")
 @require_ppe_roles(admin_required=True)
 async def give_ppe_player_role(interaction: discord.Interaction, member: discord.Member):
+    """Gives the PPE Player role silently and lets the caller handle responses."""
     role = discord.utils.get(interaction.guild.roles, name="PPE Player")
     if not role:
-        await interaction.response.send_message("❌ PPE Player role not found. Create it first.")
-        return
+        return False, "❌ PPE Player role not found. Create it first."
 
     try:
         await member.add_roles(role)
-        await interaction.response.send_message(f"✅ Gave `PPE Player` role to `{member.display_name}`.")
+        return True, None
     except discord.Forbidden:
-        await interaction.response.send_message("❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy.")
+        return False, "❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy."
 
 # --- Remove PPE Admin role ---
 @bot.tree.command(name="removeppeadminrole", description="Remove the PPE Admin role from a member. Admin only.", guilds=guilds)
@@ -580,14 +586,13 @@ async def remove_ppe_admin_role(interaction: discord.Interaction, member: discor
 async def remove_ppe_player_role(interaction: discord.Interaction, member: discord.Member):
     role = discord.utils.get(interaction.guild.roles, name="PPE Player")
     if not role:
-        await interaction.response.send_message("❌ PPE Player role not found.")
-        return
+        return False, "❌ PPE Player role not found."
 
     try:
         await member.remove_roles(role)
-        await interaction.response.send_message(f"✅ Removed `PPE Player` role from `{member.display_name}`.")
+        return True, None
     except discord.Forbidden:
-        await interaction.response.send_message("❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy.")
+        return False, "❌ I don't have permission to manage that role. Move my bot role higher in the hierarchy."
 
 # --- Command: list roles ---
 @bot.tree.command(name="listroles", description="List all roles in this server.", guilds=guilds)
