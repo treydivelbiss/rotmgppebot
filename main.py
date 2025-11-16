@@ -385,7 +385,7 @@ async def leaderboard(interaction: discord.Interaction):
 
     leaderboard_data.sort(key=lambda x: x[2], reverse=True)
 
-    lines = ["🏆 `Best PPE Leaderboard` 🏆"]
+    lines = ["🏆 `PPE Leaderboard` 🏆"]
     for rank, (player, ppe_id, pts) in enumerate(leaderboard_data, start=1):
         lines.append(f"{rank}. `{player.title()}` — PPE #{ppe_id}: {pts:.1f} points")
 
