@@ -158,7 +158,7 @@ async def newppe(interaction: discord.Interaction, class_name: str):
 
     # if key not in records, make new entry
     if key not in records:
-        records[key] = {"ppes": [], "active_ppe": None}
+        records[key] = {"ppes": [], "active_ppe": None, "is_member": True}
     player_data = records[key]
 
     # --- PPE limit check ---
@@ -368,7 +368,8 @@ async def removeplayer(interaction: discord.Interaction, member: discord.Member)
         return await interaction.response.send_message(f"❌ {member.display_name} is not in the PPE contest.")
 
     # Confirm removal
-    del records[key]
+    # del records[key]
+    records[key]["is_member"] = False
     await save_player_records(guild_id=guild_id, records=records)
 
     await interaction.response.send_message(f"🗑️ Removed `{member.display_name}` and all their PPE data from the contest.")
