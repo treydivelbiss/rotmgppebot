@@ -2,8 +2,7 @@ import os
 import json
 import asyncio
 from dotenv import load_dotenv
-from pymongo import MongoClient
-
+import motor.motor_asyncio
 # -------------------------------------------------------------------------
 # MongoDB Setup
 # -------------------------------------------------------------------------
@@ -11,7 +10,7 @@ from pymongo import MongoClient
 load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI")
 
-client = MongoClient(MONGO_URI)
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_URI, tls=True, tlsAllowInvalidCertificates=True)
 db = client["PPEBotDB"]
 collection = db["PPEPlayerData"]
 
@@ -29,24 +28,22 @@ def get_lock(guild_id: int):
 # -------------------------------------------------------------------------
 
 async def load_player_records(guild_id: int):
-    """Load the 'records' JSON object for a guild from MongoDB."""
     async with get_lock(guild_id):
-        doc = collection.find_one({"guild_id": guild_id})
+        doc = await collection.find_one({"guild_id": guild_id})
         if not doc:
             return {}
-
-        # Return the stored records dict
         return doc.get("records", {})
 
 
+
 async def save_player_records(guild_id: int, records: dict):
-    """Save (upsert) the 'records' JSON object for this guild."""
     async with get_lock(guild_id):
-        collection.update_one(
+        await collection.update_one(
             {"guild_id": guild_id},
             {"$set": {"records": records}},
             upsert=True
         )
+
 
 
 # -------------------------------------------------------------------------
