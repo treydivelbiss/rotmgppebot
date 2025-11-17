@@ -214,6 +214,8 @@ async def setactiveppe(interaction: discord.Interaction, ppe_id: int):
         
 @bot.event
 async def on_message(message: discord.Message):
+    if message.guild is None:
+        return # Ignore DMs
     guild_id = message.guild.id
     if message.author == bot.user:
         return
