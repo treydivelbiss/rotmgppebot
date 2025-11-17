@@ -309,11 +309,11 @@ async def addpoints(interaction: discord.Interaction, amount: float):
     await save_player_records(guild_id=guild_id, records=records)
 
     if amount > 0:
-        return await interaction.response.send_message(f"✅ Added `{amount:.1f}` points to your active PPE (`{active_ppe["name"]}`).\n"
+        return await interaction.response.send_message(f"✅ Added `{amount:.1f}` points to your `{active_ppe["name"]}` (PPE #{active_id}).\n"
                     f"New total: `{active_ppe['points']:.1f}` points.")
 
     elif amount < 0:
-        return await interaction.response.send_message(f"✅ Subtracted `{amount:.1f}` points from your active PPE (`{active_ppe["name"]}`).\n"
+        return await interaction.response.send_message(f"✅ Subtracted `{amount:.1f}` points from your `{active_ppe["name"]}` (PPE #{active_id}).\n"
                     f"New total: `{active_ppe['points']:.1f}` points.")
     else:
         return await interaction.response.send_message(f"⚠️ No points were added or subtracted since the amount was `0`.")
@@ -419,12 +419,12 @@ async def myppe(interaction: discord.Interaction):
     player_data = records[key]
     active_id = player_data.get("active_ppe")
 
-    lines = [f"`{interaction.user.display_name}'s PPEs:`"]
+    lines = [f"`{interaction.user.display_name}'s` PPEs:"]
     for ppe in sorted(player_data["ppes"], key=lambda x: x["id"]):
         id_ = ppe["id"]
-        pts = ppe.get("points", 0)
-        marker = "✅ (Active)" if id_ == active_id else ""
-        lines.append(f"• PPE #{id_} (`{ppe['name']}`): {pts:.1f} points {marker}")
+        pts = ppe.get("points", 0) # ✅
+        marker = " -> (Active)" if id_ == active_id else ""
+        lines.append(f"• PPE #{id_} `{ppe['name']}`: `{pts:.1f}` points {marker}")
 
     await interaction.response.send_message("\n".join(lines))
 
