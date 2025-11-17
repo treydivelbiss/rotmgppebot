@@ -17,6 +17,22 @@ ROTMG_CLASSES = [
     "Sorcerer", "Ninja", "Samurai", "Bard", "Summoner", "Kensei"
 ]
 
+DUNGEONS = [
+    "Pirate Cave", "Forest Maze", "Spider Den", "Forbidden Jungle", "The Hive",
+    "Snake Pit", "Sprite World", "Cave of a Thousand Treasures", "Ancient Ruins", "Magic Woods", 
+    "Candyland Hunting Grounds", "Undead Lair", "Puppet Master's Theatre", "Toxic Sewers", "Cursed Library", "Mad Lab","Abyss of Demons",
+    "Manor of the Immortals", "Haunted Cemetery", "The Machine", "Davy Jones' Locker", "Ocean Trench", "The Crawling Depths", "Woodland Labyrinth",
+    "Deadwater Docks", "Puppet Master's Encore", "Cnidarian Reef", "Parasite Chambers", "The Tavern", "Sulfurous Wetlands", "Mountain Temple", 
+    "Lair of Draconis", "Tomb of the Ancients", "The Third Dimension", "Lair of Shaitan", "Secluded Thicket", "High Tech Terror", "Ice Citadel", "Moonlight Village",
+    "The Nest", "Cultist Hideout", "Fungal Cavern", "Crystal Cavern", "Spectral Penitentiary", "Kogbold Steamworks", "Lost Halls", "The Void", "The Shatters",
+    "Heroic Undead Lair", "Infernal Abyss of Demons", "Plagued Nest", "Advanced Kogbold Steamworks", 
+    "Oryx's Castle", "Oryx's Chamber", "Wine Cellar", "Oryx's Sanctuary",
+    "Malogia", "Untaris", "Katalund", "Forax",
+    "Legacy Heroic Undead Lair", "Legacy Heroic Abyss of Demons",
+    "Rainbow Road", "Santa's Workshop", "Ice Tomb", "Battle for the Nexus", "Stromwell's Rift I", "Stromwell's Rift II", "Stromwell's Rift III",
+    "Belladonna's Garden", "Queen Bunny Chamber", "Mad God Mayhem", "The Trials of Cronus", "Hidden Interregnum", "Oryxmania", "White Snake Invasion"
+]
+
 # Autocomplete function
 async def class_autocomplete(interaction: discord.Interaction, current: str):
     # Filter based on what the user typed
@@ -26,6 +42,19 @@ async def class_autocomplete(interaction: discord.Interaction, current: str):
     ]
 
     # Discord only allows up to 25 choices
+    return [
+        app_commands.Choice(name=m, value=m)
+        for m in matches[:25]
+    ]
+
+async def dungeon_autocomplete(interaction: discord.Interaction, current: str):
+    current = current.lower()
+
+    matches = [
+        d for d in DUNGEONS
+        if current in d.lower()
+    ]
+
     return [
         app_commands.Choice(name=m, value=m)
         for m in matches[:25]
@@ -195,7 +224,6 @@ async def newppe(interaction: discord.Interaction, class_name: str):
 
 
 @bot.tree.command(name="setactiveppe", description="Set which PPE is active for point tracking.", guilds=guilds)
-# @commands.has_role("PPE Player")
 @require_ppe_roles(player_required=True)
 async def setactiveppe(interaction: discord.Interaction, ppe_id: int):
     guild_id = interaction.guild.id
@@ -255,6 +283,41 @@ async def on_message(message: discord.Message):
                     await message.channel.send("\n".join(msg_lines))
 
     await bot.process_commands(message)
+
+@bot.tree.command(name="submitloot", description="Submit loot for point tracking.", guilds=guilds)
+@app_commands.describe(dungeon="Choose the dungeon you completed", screenshot="Upload a screenshot of your loot")
+@app_commands.autocomplete(dungeon=dungeon_autocomplete)
+@require_ppe_roles(player_required=True)
+async def submitloot(
+    interaction: discord.Interaction,
+    dungeon: str,
+    screenshot: discord.Attachment
+):
+    # --- Validate dungeon ---
+    if dungeon not in DUNGEONS:
+        return await interaction.response.send_message(
+            f"❌ `{dungeon}` is not a recognized dungeon.\n"
+            f"Use the autocomplete suggestions to select a valid dungeon.",
+            ephemeral=True
+        )
+
+    # --- Validate screenshot attachment (basic check only) ---
+    if not screenshot.filename.lower().endswith((".png", ".jpg", ".jpeg")):
+        return await interaction.response.send_message(
+            "❌ Please upload a PNG or JPG screenshot.",
+            ephemeral=True
+        )
+
+    # Defer to give us time (we'll add processing later)
+    await interaction.response.defer(thinking=True)
+
+    # For now: placeholder response, later we'll do template matching
+    await interaction.followup.send(
+        f"📷 Loot submission received!\n"
+        f"**Dungeon:** {dungeon}\n"
+        f"**Screenshot:** `{screenshot.filename}`\n\n"
+        f"(Processing logic coming next...)"
+    )
 
     
 @bot.tree.command(name="addpointsfor", description="Add points to another player's active PPE.", guilds=guilds)
