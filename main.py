@@ -308,8 +308,15 @@ async def addpoints(interaction: discord.Interaction, amount: float):
     active_ppe["points"] += amount
     await save_player_records(guild_id=guild_id, records=records)
 
-    await interaction.response.send_message(f"✅ Added `{amount:.1f}` points to your active PPE (`{active_ppe["name"]}`).\n"
+    if amount > 0:
+        return await interaction.response.send_message(f"✅ Added `{amount:.1f}` points to your active PPE (`{active_ppe["name"]}`).\n"
                     f"New total: `{active_ppe['points']:.1f}` points.")
+
+    elif amount < 0:
+        return await interaction.response.send_message(f"✅ Subtracted `{amount:.1f}` points from your active PPE (`{active_ppe["name"]}`).\n"
+                    f"New total: `{active_ppe['points']:.1f}` points.")
+    else:
+        return await interaction.response.send_message(f"⚠️ No points were added or subtracted since the amount was `0`.")
 
 
 @bot.tree.command(name="listplayers", description="Show all current participants in the PPE contest.", guilds=guilds)
@@ -417,10 +424,26 @@ async def myppe(interaction: discord.Interaction):
         id_ = ppe["id"]
         pts = ppe.get("points", 0)
         marker = "✅ (Active)" if id_ == active_id else ""
-        lines.append(f"• PPE #{id_}: {pts:.1f} points {marker}")
+        lines.append(f"• PPE #{id_} (`{ppe['name']}`): {pts:.1f} points {marker}")
 
     await interaction.response.send_message("\n".join(lines))
 
+# delete all ppes for a user
+@bot.tree.command(name="deleteallppes", description="Delete all your PPEs.", guilds=guilds)
+@require_ppe_roles(admin_required=True)
+async def delete_all_ppes(interaction: discord.Interaction, member: discord.Member):
+    guild_id = interaction.guild.id
+    records = await load_player_records(guild_id)
+    key = member.display_name.lower()
+
+    if key not in records or not records[key]["ppes"]:
+        return await interaction.response.send_message("❌ You don’t have any PPEs to delete.")
+
+    # Clear all PPEs for the user
+    records[key]["ppes"] = []
+    records[key]["active_ppe"] = None
+    await save_player_records(guild_id=guild_id, records=records)
+    await interaction.response.send_message("✅ All your PPEs have been deleted.")
 
 @bot.tree.command(name="leaderboard", description="Show the best PPE from each player.", guilds=guilds)
 async def leaderboard(interaction: discord.Interaction):
@@ -435,9 +458,13 @@ async def leaderboard(interaction: discord.Interaction):
         if not data["ppes"]:
             continue
         best_ppe = max(data["ppes"], key=lambda p: p["points"])
-        leaderboard_data.append((player, best_ppe["id"], best_ppe["points"]))
+        leaderboard_data.append((player, best_ppe["name"], best_ppe["points"]))
 
     leaderboard_data.sort(key=lambda x: x[2], reverse=True)
+
+    # if leaderboard is empty
+    if not leaderboard_data:
+        return await interaction.response.send_message("❌ No PPE data available yet.")
 
     lines = ["🏆 `PPE Leaderboard` 🏆"]
     for rank, (player, ppe_id, pts) in enumerate(leaderboard_data, start=1):
