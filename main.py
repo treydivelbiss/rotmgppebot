@@ -585,23 +585,23 @@ async def ppehelp(interaction: discord.Interaction):
     )
 
     # --- Format everyone commands ---
-    everyone_text = "\n".join([f"• `//{cmd}` — {desc}" for cmd, desc in everyone_cmds.items()])
+    everyone_text = "\n".join([f"• `/{cmd}` — {desc}" for cmd, desc in everyone_cmds.items()])
     embed.add_field(name="⚪ Everyone Commands", value=everyone_text or "None available", inline=False)
 
     # --- Format player commands ---
-    player_text = "\n".join([f"• `//{cmd}` — {desc}" for cmd, desc in player_cmds.items()])
+    player_text = "\n".join([f"• `/{cmd}` — {desc}" for cmd, desc in player_cmds.items()])
     embed.add_field(name="🟢 Player Commands", value=player_text or "None available", inline=False)
 
     # --- Format admin commands ---
-    admin_text = "\n".join([f"• `//{cmd}` — {desc}" for cmd, desc in admin_cmds.items()])
+    admin_text = "\n".join([f"• `/{cmd}` — {desc}" for cmd, desc in admin_cmds.items()])
     embed.add_field(name="🔴 Admin Commands", value=admin_text or "None available", inline=False)
 
     # --- Format owner commands ---
-    owner_text = "\n".join([f"• `//{cmd}` — {desc}" for cmd, desc in owner_cmds.items()])
+    owner_text = "\n".join([f"• `/{cmd}` — {desc}" for cmd, desc in owner_cmds.items()])
     embed.add_field(name="🔒 Owner Commands", value=owner_text or "None available", inline=False)
 
     # --- Footer ---
-    embed.set_footer(text="PPE Bot by LogicVoid — use //ppehelp anytime for command info")
+    embed.set_footer(text="PPE Bot by LogicVoid — use /ppehelp anytime for command info")
     await interaction.response.send_message(embed=embed)
 
 ###############
