@@ -188,7 +188,7 @@ async def newppe(interaction: discord.Interaction, class_name: str):
     await save_player_records(guild_id=guild_id, records=records)
 
     await interaction.response.send_message(
-        f"✅ Created `PPE #{next_id}` using the **{class_name}** class "
+        f"✅ Created `PPE #{next_id}` for your `{class_name}` "
         f"and set it as your active PPE.\n"
         f"You now have {ppe_count + 1}/10 PPEs."
     )
@@ -468,7 +468,7 @@ async def leaderboard(interaction: discord.Interaction):
 
     lines = ["🏆 `PPE Leaderboard` 🏆"]
     for rank, (player, ppe_id, pts) in enumerate(leaderboard_data, start=1):
-        lines.append(f"{rank}. `{player.title()}` — PPE #{ppe_id}: {pts:.1f} points")
+        lines.append(f"{rank}. `{player.title()}` — `{ppe_id}`: `{pts:.1f}` points")
 
     await interaction.response.send_message("\n".join(lines))
 
