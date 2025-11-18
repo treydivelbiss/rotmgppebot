@@ -309,7 +309,7 @@ async def submitloot(
             msg_lines.append(f"- {loot['item']}: +{loot['points']} points{dup_tag}")
         msg_lines.append(f"`Total Points:` {total:.1f}")
 
-        await interaction.response.send_message("\n".join(msg_lines))
+        await interaction.followup.send("\n".join(msg_lines))
     
     
 
