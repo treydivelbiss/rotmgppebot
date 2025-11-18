@@ -294,7 +294,7 @@ async def submitloot(
     # FIRST MESSAGE → send screenshot
     await interaction.followup.send(
         content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
-        file=screenshot
+        file= await screenshot.to_file()
     )
     
 
