@@ -276,7 +276,6 @@ async def submitloot(
             ephemeral=True
         )
     
-    await interaction.response.defer(thinking=True)
 
     # --- Prepare download directory ---
     download_dir = "./downloads"
@@ -292,10 +291,12 @@ async def submitloot(
     # )
 
     # FIRST MESSAGE → send screenshot
-    await interaction.followup.send(
+    await interaction.response.send_message(
         content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
         file= await screenshot.to_file()
     )
+    await interaction.response.defer(thinking=True)
+
     
 
     found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
@@ -303,11 +304,11 @@ async def submitloot(
         player_name = str(interaction.user.display_name)
         loot_results, total = await calculate_loot_points(interaction.guild.id, player_name, found_items)
 
-        msg_lines = [f"`{player_name}'s Loot Summary:`"]
+        msg_lines = [f"`{player_name}'s` Loot Summary:"]
         for loot in loot_results:
             dup_tag = " (Duplicate ⚠️)" if loot["duplicate"] else ""
-            msg_lines.append(f"- {loot['item']}: +{loot['points']} points{dup_tag}")
-        msg_lines.append(f"`Total Points:` {total:.1f}")
+            msg_lines.append(f"- {loot['item']}: +`{loot['points']}` points{dup_tag}")
+        msg_lines.append(f"Total Points: `{total:.1f}`")
 
         await interaction.followup.send("\n".join(msg_lines))
     

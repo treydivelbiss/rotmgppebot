@@ -45,7 +45,7 @@ def find_items_in_image(
             sy = row * (cell_h + 0)
             slots.append((sx, sy, cell_w, cell_h))
 
-    slots = slots[:4]   # ✅ Only check the first 4 slots for speed
+    # slots = slots[:4]   # ✅ Only check the first 4 slots for speed
 
     # --- 4. Load templates (with transparency) ---
     templates = []
