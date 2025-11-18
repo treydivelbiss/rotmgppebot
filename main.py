@@ -291,10 +291,7 @@ async def submitloot(
     # )
 
     # FIRST MESSAGE → send screenshot
-    await interaction.followup.send(
-        content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
-        file=screenshot
-    )
+    
 
     found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
     if found_items:
@@ -308,6 +305,11 @@ async def submitloot(
         msg_lines.append(f"`Total Points:` {total:.1f}")
 
         await interaction.response.send_message("\n".join(msg_lines))
+
+    await interaction.followup.send(
+        content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
+        file=screenshot
+    )
 
 
 
