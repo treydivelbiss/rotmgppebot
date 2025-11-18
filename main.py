@@ -280,6 +280,8 @@ async def submitloot(
             ephemeral=True
         )
     
+    await interaction.response.defer(thinking=True)
+
     # Read screenshot into memory
     image_bytes = await screenshot.read()
 
@@ -302,7 +304,6 @@ async def submitloot(
             ephemeral=True
         )
     
-    await interaction.response.defer(thinking=True)
 
     # --- Prepare download directory ---
     download_dir = "./downloads"
