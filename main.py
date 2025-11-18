@@ -265,6 +265,22 @@ async def submitloot(
     dungeon: str,
     screenshot: discord.Attachment
 ):
+    guild_id = interaction.guild.id
+    records = await load_player_records(guild_id)
+    key = interaction.user.display_name.lower()
+    
+    # Must be a contest member
+    if key not in records or not records[key].get("is_member", False):
+        return await interaction.response.send_message("❌ You’re not part of the PPE contest. Ask a mod to add you with `/addplayer @you`.")
+    player_data = records[key]
+    active_id = player_data.get("active_ppe")
+    if not active_id:
+        return await interaction.response.send_message("❌ You don’t have an active PPE. Use `/newppe` to create one first.")
+    # Find the active PPE
+    active_ppe = next((p for p in player_data["ppes"] if p["id"] == active_id), None)
+    if not active_ppe:
+        return await interaction.response.send_message("❌ Could not find your active PPE record. Try creating a new one with `/newppe`.")
+    
     # --- Validate dungeon ---
     if dungeon not in DUNGEONS:
         return await interaction.response.send_message(
