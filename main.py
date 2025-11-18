@@ -30,7 +30,8 @@ DUNGEONS = [
     "Malogia", "Untaris", "Katalund", "Forax",
     "Legacy Heroic Undead Lair", "Legacy Heroic Abyss of Demons",
     "Rainbow Road", "Santa's Workshop", "Ice Tomb", "Battle for the Nexus", "Stromwell's Rift I", "Stromwell's Rift II", "Stromwell's Rift III",
-    "Belladonna's Garden", "Queen Bunny Chamber", "Mad God Mayhem", "The Trials of Cronus", "Hidden Interregnum", "Oryxmania", "White Snake Invasion"
+    "Belladonna's Garden", "Queen Bunny Chamber", "Mad God Mayhem", "The Trials of Cronus", "Hidden Interregnum", "Oryxmania", "White Snake Invasion",
+    "The Realm"
 ]
 
 # Autocomplete function
@@ -307,17 +308,40 @@ async def submitloot(
             "❌ Please upload a PNG or JPG screenshot.",
             ephemeral=True
         )
+    
 
-    # Defer to give us time (we'll add processing later)
-    await interaction.response.defer(thinking=True)
+    # --- Prepare download directory ---
+    download_dir = "./downloads"
+    os.makedirs(download_dir, exist_ok=True)
+    file_path = f"./downloads/{screenshot.filename}"
+    await screenshot.save(file_path)
 
-    # For now: placeholder response, later we'll do template matching
-    await interaction.followup.send(
-        f"📷 Loot submission received!\n"
-        f"**Dungeon:** {dungeon}\n"
-        f"**Screenshot:** `{screenshot.filename}`\n\n"
-        f"(Processing logic coming next...)"
-    )
+    found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
+    if found_items:
+        player_name = str(interaction.user.display_name)
+        loot_results, total = await calculate_loot_points(interaction.guild.id, player_name, found_items)
+
+        msg_lines = [f"`{player_name}'s Loot Summary:`"]
+        for loot in loot_results:
+            dup_tag = " (Duplicate ⚠️)" if loot["duplicate"] else ""
+            msg_lines.append(f"- {loot['item']}: +{loot['points']} points{dup_tag}")
+        msg_lines.append(f"`Total Points:` {total:.1f}")
+
+        await interaction.response.send_message("\n".join(msg_lines))
+
+
+
+
+    # # Defer to give us time (we'll add processing later)
+    # await interaction.response.defer(thinking=True)
+
+    # # For now: placeholder response, later we'll do template matching
+    # await interaction.followup.send(
+    #     f"📷 Loot submission received!\n"
+    #     f"**Dungeon:** {dungeon}\n"
+    #     f"**Screenshot:** `{screenshot.filename}`\n\n"
+    #     f"(Processing logic coming next...)"
+    # )
 
     
 @bot.tree.command(name="addpointsfor", description="Add points to another player's active PPE.", guilds=guilds)
