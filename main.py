@@ -276,6 +276,7 @@ async def submitloot(
             ephemeral=True
         )
     
+    await interaction.response.defer(thinking=True)
 
     # --- Prepare download directory ---
     download_dir = "./downloads"
@@ -291,6 +292,10 @@ async def submitloot(
     )
 
     # FIRST MESSAGE → send screenshot
+    await interaction.followup.send(
+        content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
+        file=file
+    )
     
 
     found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
@@ -305,11 +310,8 @@ async def submitloot(
         msg_lines.append(f"`Total Points:` {total:.1f}")
 
         await interaction.response.send_message("\n".join(msg_lines))
-
-    await interaction.followup.send(
-        content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
-        file=file
-    )
+    
+    
 
 
 
