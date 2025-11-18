@@ -1,3 +1,4 @@
+from scipy import io
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -248,40 +249,6 @@ async def on_message(message: discord.Message):
     guild_id = message.guild.id
     if message.author == bot.user:
         return
-    
-    # --- Only allow in registered PPE channels ---
-    ppe_channels = load_ppe_channels()
-    if message.channel.id not in ppe_channels:
-        # Still allow normal commands to run elsewhere
-        return await bot.process_commands(message)
-
-    # --- Only allow PPE Players or PPE Admins ---
-    has_ppe_player = discord.utils.get(message.author.roles, name="PPE Player")
-    has_ppe_admin = discord.utils.get(message.author.roles, name="PPE Admin")
-
-    if has_ppe_player and message.channel.id in ppe_channels:
-        # --- Process attachments for loot detection ---
-    
-        for attachment in message.attachments:
-            if attachment.filename.lower().endswith((".png", ".jpg", ".jpeg")):
-                # --- Prepare download directory ---
-                download_dir = "./downloads"
-                os.makedirs(download_dir, exist_ok=True)
-                file_path = f"./downloads/{attachment.filename}"
-                await attachment.save(file_path)
-
-                found_items = find_items_in_image(file_path)
-                if found_items:
-                    player_name = str(message.author.display_name)
-                    loot_results, total = await calculate_loot_points(guild_id, player_name, found_items)
-
-                    msg_lines = [f"`{player_name}'s Loot Summary:`"]
-                    for loot in loot_results:
-                        dup_tag = " (Duplicate ⚠️)" if loot["duplicate"] else ""
-                        msg_lines.append(f"- {loot['item']}: +{loot['points']} points{dup_tag}")
-                    msg_lines.append(f"`Total Points:` {total:.1f}")
-
-                    await message.channel.send("\n".join(msg_lines))
 
     await bot.process_commands(message)
 
@@ -315,6 +282,19 @@ async def submitloot(
     os.makedirs(download_dir, exist_ok=True)
     file_path = f"./downloads/{screenshot.filename}"
     await screenshot.save(file_path)
+
+    # Read screenshot to memory
+    image_bytes = await screenshot.read()
+    file = discord.File(
+        fp=io.BytesIO(image_bytes),
+        filename=screenshot.filename
+    )
+
+    # FIRST MESSAGE → send screenshot
+    await interaction.followup.send(
+        content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
+        file=file
+    )
 
     found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
     if found_items:
@@ -564,68 +544,6 @@ async def leaderboard(interaction: discord.Interaction):
 
 import json, os
 
-######################
-#### PPE CHANNELS ####
-######################
-
-PPE_CHANNEL_FILE = "./ppe_channels.json"
-
-def load_ppe_channels():
-    if os.path.exists(PPE_CHANNEL_FILE):
-        with open(PPE_CHANNEL_FILE, "r", encoding="utf-8") as f:
-            try:
-                data = json.load(f)
-                return data.get("ppe_channels", [])
-            except json.JSONDecodeError:
-                return []
-    return []
-
-def save_ppe_channels(channel_ids):
-    with open(PPE_CHANNEL_FILE, "w", encoding="utf-8") as f:
-        json.dump({"ppe_channels": channel_ids}, f, indent=2)
-
-@bot.tree.command(name="setppechannel", description="Mark this channel as a PPE channel.", guilds=guilds)
-# @commands.has_role("PPE Admin")
-@require_ppe_roles(admin_required=True)
-async def set_ppe_channel(interaction: discord.Interaction):
-    channel_id = interaction.channel.id
-    channels = load_ppe_channels()
-    if channel_id in channels:
-        return await interaction.response.send_message("⚠️ This channel is already set as a PPE channel.")
-
-    channels.append(channel_id)
-    save_ppe_channels(channels)
-    await interaction.response.send_message(f"✅ Added `#{interaction.channel.name}` as a PPE channel.")
-
-@bot.tree.command(name="unsetppechannel", description="Remove this channel from PPE channels.", guilds=guilds)
-# @commands.has_role("PPE Admin")
-@require_ppe_roles(admin_required=True)
-async def unset_ppe_channel(interaction: discord.Interaction):
-    channel_id = interaction.channel.id
-    channels = load_ppe_channels()
-    if channel_id not in channels:
-        return await interaction.response.send_message("⚠️ This channel is not currently a PPE channel.")
-
-    channels.remove(channel_id)
-    save_ppe_channels(channels)
-    await interaction.response.send_message(f"🗑️ Removed `#{interaction.channel.name}` from the PPE channel list.")
-
-@bot.tree.command(name="listppechannels", description="Show all channels marked as PPE channels.", guilds=guilds)
-# @commands.has_role("PPE Admin")
-@require_ppe_roles(admin_required=True)
-async def list_ppe_channels(interaction: discord.Interaction):
-    channels = load_ppe_channels()
-    if not channels:
-        return await interaction.response.send_message("❌ No PPE channels have been set yet. Use `/setppechannel` in one.")
-    lines = ["`📜 PPE Channels:`"]
-    for cid in channels:
-        channel = interaction.guild.get_channel(cid)
-        if channel:
-            lines.append(f"• #{channel.name} ({cid})")
-        else:
-            lines.append(f"• (deleted channel) {cid}")
-    await interaction.response.send_message("\n".join(lines))
-
 
 @bot.tree.command(name="ppehelp", description="Show available PPE commands for players and admins.", guilds=guilds)
 async def ppehelp(interaction: discord.Interaction):
@@ -640,7 +558,8 @@ async def ppehelp(interaction: discord.Interaction):
         "myppe": "View your current PPE stats or progress.",
         "newppe": "Start a new PPE run and track your progress.",
         "setactiveppe": "Set which of your PPE characters is currently active.",
-        "addpoints": "Add points to your active PPE.",
+        "addpoints": "Add points to your active PPE manually.",
+        "submitloot": "Submit a loot screenshot for point tracking automatically.",
     }
 
     # --- Admin Commands ---
@@ -672,19 +591,19 @@ async def ppehelp(interaction: discord.Interaction):
     )
 
     # --- Format everyone commands ---
-    everyone_text = "\n".join([f"• `/{cmd}` — {desc}" for cmd, desc in everyone_cmds.items()])
+    everyone_text = "\n".join([f"`/{cmd}` — {desc}" for cmd, desc in everyone_cmds.items()])
     embed.add_field(name="⚪ Everyone Commands", value=everyone_text or "None available", inline=False)
 
     # --- Format player commands ---
-    player_text = "\n".join([f"• `/{cmd}` — {desc}" for cmd, desc in player_cmds.items()])
+    player_text = "\n".join([f"`/{cmd}` — {desc}" for cmd, desc in player_cmds.items()])
     embed.add_field(name="🟢 Player Commands", value=player_text or "None available", inline=False)
 
     # --- Format admin commands ---
-    admin_text = "\n".join([f"• `/{cmd}` — {desc}" for cmd, desc in admin_cmds.items()])
+    admin_text = "\n".join([f"`/{cmd}` — {desc}" for cmd, desc in admin_cmds.items()])
     embed.add_field(name="🔴 Admin Commands", value=admin_text or "None available", inline=False)
 
     # --- Format owner commands ---
-    owner_text = "\n".join([f"• `/{cmd}` — {desc}" for cmd, desc in owner_cmds.items()])
+    owner_text = "\n".join([f"`/{cmd}` — {desc}" for cmd, desc in owner_cmds.items()])
     embed.add_field(name="🔒 Owner Commands", value=owner_text or "None available", inline=False)
 
     # --- Footer ---
