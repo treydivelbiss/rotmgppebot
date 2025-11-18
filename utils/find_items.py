@@ -127,7 +127,7 @@ def find_items_in_image(
                 color_score = 0.5  # neutral fallback
 
             # --- Combine structure + color weighting ---
-            final_val = 0.9 * structural_val + 0.1 * color_score
+            final_val = 0.7 * structural_val + 0.3 * color_score
 
             # --- Update best match if higher confidence ---
             if final_val > best_val:
