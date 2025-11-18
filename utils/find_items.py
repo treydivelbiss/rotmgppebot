@@ -149,7 +149,7 @@ def find_items_in_image(
             cv2.putText(annotated, f"{best_item} ({best_val:.2f})",
                         (sx+2, sy+15), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 1)
         else:
-            print(f"[DEBUG] Slot {i+1}: No confident match (best={best_val:.3f})")
+            print(f"[DEBUG] Slot {i+1}: No confident match | {best_item:<30s} (best={best_val:.3f})")
 
     save_slot_debug_image(loot_gui, slots)
 
