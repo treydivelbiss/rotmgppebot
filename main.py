@@ -252,6 +252,10 @@ async def on_message(message: discord.Message):
 
     await bot.process_commands(message)
 
+import cv2
+import numpy as np
+
+
 @bot.tree.command(name="submitloot", description="Submit loot for point tracking.", guilds=guilds)
 @app_commands.describe(dungeon="Choose the dungeon you completed", screenshot="Upload a screenshot of your loot")
 @app_commands.autocomplete(dungeon=dungeon_autocomplete)
@@ -276,6 +280,29 @@ async def submitloot(
             ephemeral=True
         )
     
+    # Read screenshot into memory
+    image_bytes = await screenshot.read()
+
+    # Decode the image with OpenCV
+    image_np = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(image_np, cv2.IMREAD_COLOR)
+
+    if img is None:
+        return await interaction.followup.send(
+            "❌ I couldn't read that image. Please upload a valid PNG or JPG file.",
+            ephemeral=True
+        )
+
+    # Validate dimensions
+    h, w = img.shape[:2]
+    if (w, h) != (1920, 1080):
+        return await interaction.followup.send(
+            f"❌ Invalid screenshot size: **{w}×{h}**.\n"
+            f"Please upload a **1920×1080** screenshot.",
+            ephemeral=True
+        )
+    
+    await interaction.response.defer(thinking=True)
 
     # --- Prepare download directory ---
     download_dir = "./downloads"
@@ -283,19 +310,14 @@ async def submitloot(
     file_path = f"./downloads/{screenshot.filename}"
     await screenshot.save(file_path)
 
-    # # Read screenshot to memory
-    # image_bytes = await screenshot.read()
-    # file = discord.File(
-    #     fp=io.BytesIO(image_bytes),
-    #     filename=screenshot.filename
-    # )
+    
+
 
     # FIRST MESSAGE → send screenshot
-    await interaction.response.send_message(
+    await interaction.followup.send(
         content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
         file= await screenshot.to_file()
     )
-    await interaction.response.defer(thinking=True)
 
     
 
