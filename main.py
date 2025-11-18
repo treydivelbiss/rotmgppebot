@@ -283,17 +283,17 @@ async def submitloot(
     file_path = f"./downloads/{screenshot.filename}"
     await screenshot.save(file_path)
 
-    # # Read screenshot to memory
-    # image_bytes = await screenshot.read()
-    # file = discord.File(
-    #     fp=io.BytesIO(image_bytes),
-    #     filename=screenshot.filename
-    # )
+    # Read screenshot to memory
+    image_bytes = await screenshot.read()
+    file = discord.File(
+        fp=io.BytesIO(image_bytes),
+        filename=screenshot.filename
+    )
 
     # FIRST MESSAGE → send screenshot
     await interaction.followup.send(
         content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
-        file=screenshot
+        file=file
     )
 
     found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
