@@ -73,7 +73,7 @@ def find_items_in_image(
     # --- 5. For each slot, run detection ---
     for i, (sx, sy, sw, sh) in enumerate(slots):
         # Extract inner 70x70 area (centered, remove border)
-        inner_w, inner_h = 70, 70
+        inner_w, inner_h = 69, 69
         x_pad = (sw - inner_w) // 2
         y_pad = (sh - inner_h) // 2
         slot_crop = loot_gui[sy + y_pad : sy + y_pad + inner_h,
@@ -145,9 +145,27 @@ def find_items_in_image(
             print(f"[DEBUG] Slot {i+1}: {best_item:30s} | Confidence: {best_val:.3f}")
 
             # Draw rectangle on annotated image
-            cv2.rectangle(annotated, (sx, sy), (sx+sw, sy+sh), (0, 0, 255), 2)
+            cv2.rectangle(annotated, (sx + x_pad, sy + y_pad), (sx+x_pad+inner_w, sy+y_pad+inner_h), (0, 0, 255), 2)
             cv2.putText(annotated, f"{best_item} ({best_val:.2f})",
                         (sx+2, sy+15), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 1)
+            
+            # -------------------------------------------------
+            # 🟩 NEW: overlay the matching template onto debug image
+            # -------------------------------------------------
+            template_bgr, template_alpha = None, None
+            for name, tpl_bgr, tpl_alpha in templates:
+                if name == best_item:
+                    template_bgr = tpl_bgr
+                    template_alpha = tpl_alpha
+                    break
+
+            if template_bgr is not None:
+                # Ensure size is 40x40 so it matches the slot region
+                tpl_bgr_resized  = cv2.resize(template_bgr,  (69, 69), interpolation=cv2.INTER_AREA)
+                tpl_alpha_resize = cv2.resize(template_alpha, (69, 69), interpolation=cv2.INTER_NEAREST)
+
+                # Paste template on annotated image
+                overlay_template(annotated, tpl_bgr_resized, tpl_alpha_resize, sx + x_pad, sy + y_pad)
         else:
             print(f"[DEBUG] Slot {i+1}: No confident match | {best_item:<30s} (best={best_val:.3f})")
 
@@ -160,6 +178,22 @@ def find_items_in_image(
     print(f"🖼️ Saved debug annotated image: {debug_path}")
 
     return detections
+
+def overlay_template(annotated, template_bgr, template_alpha, x, y):
+    """Paste a 40x40 template (with alpha) onto the annotated image at position (x,y)."""
+
+    h, w = template_bgr.shape[:2]
+
+    # Extract regions
+    overlay_region = annotated[y:y+h, x:x+w]
+
+    # Normalize alpha mask to [0,1]
+    alpha = (template_alpha / 255.0).reshape(h, w, 1)
+
+    # Blend template over annotated region
+    blended = (template_bgr * alpha + overlay_region * (1 - alpha)).astype("uint8")
+
+    annotated[y:y+h, x:x+w] = blended
 
 
 # --- Save a debug image showing 40x40 match boxes ---
