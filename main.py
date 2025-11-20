@@ -457,7 +457,7 @@ async def listplayers(interaction: discord.Interaction):
 @bot.tree.command(name="listloot", description="Show all PPEs and loot for a player.", guilds=guilds)
 async def listloot(interaction: discord.Interaction, member: discord.Member):
     guild_id = interaction.guild.id
-    if member not in interaction.guild.members:
+    if not interaction.guild.get_member_named(member.display_name):
         return await interaction.response.send_message("❌ That member is not in this server.")
     
     records = await load_player_records(guild_id)
