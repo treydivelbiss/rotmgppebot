@@ -9,7 +9,7 @@ import json
 
 from utils.find_items import find_items_in_image
 from utils.calc_points import calculate_loot_points
-from utils.player_records import load_player_records, save_player_records, ensure_player_exists
+from utils.player_records import get_active_ppe, load_player_records, save_player_records, ensure_player_exists
 from utils.role_checks import require_ppe_roles
 
 ROTMG_CLASSES = [
@@ -329,8 +329,6 @@ async def submitloot(
     await screenshot.save(file_path)
 
     
-
-
     # FIRST MESSAGE → send screenshot
     await interaction.followup.send(
         content=f"📷 **Screenshot received!**\nDungeon: **{dungeon}**",
@@ -344,6 +342,12 @@ async def submitloot(
         player_name = str(interaction.user.display_name)
         loot_results, total = await calculate_loot_points(interaction.guild.id, player_name, found_items)
 
+        # add points to total points of active ppe
+
+        # add items to active ppe
+        for detected_loot in found_items:
+            additem(detected_loot["item"], active_ppe)
+
         msg_lines = [f"`{player_name}'s` Loot Summary:"]
         for loot in loot_results:
             dup_tag = " (Duplicate ⚠️)" if loot["duplicate"] else ""
@@ -353,20 +357,97 @@ async def submitloot(
         await interaction.followup.send("\n".join(msg_lines))
     
     
+@bot.tree.command(name="addloot", description="Add an item to your active PPE's loot.", guilds=guilds)
+async def addloot(
+        interaction: discord.Interaction,
+        item_name: str,
+        isDivine: bool = False,
+        isShiny: bool = False
+    ):
+        guild = interaction.guild
+        user = interaction.user
 
+        # ----------------------------------------------------------------------
+        # GUARD 1: Must be used in a guild
+        # ----------------------------------------------------------------------
+        if guild is None:
+            await interaction.response.send_message(
+                "❌ This command can only be used in a server.",
+                ephemeral=True
+            )
+            return
 
+        guild_id = guild.id
+        records = await load_player_records(guild_id)
 
+        # Normalize user key
+        key = user.name.lower()
 
-    # # Defer to give us time (we'll add processing later)
-    # await interaction.response.defer(thinking=True)
+        # ----------------------------------------------------------------------
+        # GUARD 2: Player must exist in PPE records
+        # ----------------------------------------------------------------------
+        if key not in records:
+            await interaction.response.send_message(
+                "❌ You are not registered in the PPE system.",
+                ephemeral=True
+            )
+            return
 
-    # # For now: placeholder response, later we'll do template matching
-    # await interaction.followup.send(
-    #     f"📷 Loot submission received!\n"
-    #     f"**Dungeon:** {dungeon}\n"
-    #     f"**Screenshot:** `{screenshot.filename}`\n\n"
-    #     f"(Processing logic coming next...)"
-    # )
+        player_data = records[key]
+
+        # ----------------------------------------------------------------------
+        # GUARD 3: Player must have an active PPE
+        # ----------------------------------------------------------------------
+        active_ppe = get_active_ppe(player_data)
+        if not active_ppe:
+            await interaction.response.send_message(
+                "❌ You do not have an active PPE.",
+                ephemeral=True
+            )
+            return
+
+        # ----------------------------------------------------------------------
+        # Prepare loot structures
+        # ----------------------------------------------------------------------
+        loot_dict = active_ppe.setdefault("loot", {})
+
+        # ----------------------------------------------------------------------
+        # Normalize item name
+        # ----------------------------------------------------------------------
+        base_name = item_name.strip().lower()
+
+        # ----------------------------------------------------------------------
+        # Generate variant suffix
+        # ----------------------------------------------------------------------
+        suffix_parts = []
+        if isDivine:
+            suffix_parts.append("(divine)")
+        if isShiny:
+            suffix_parts.append("(shiny)")
+
+        if suffix_parts:
+            final_key = f"{base_name} " + " ".join(suffix_parts)
+        else:
+            final_key = base_name
+
+        # ----------------------------------------------------------------------
+        # Increment loot count
+        # ----------------------------------------------------------------------
+        loot_dict[final_key] = loot_dict.get(final_key, 0) + 1
+
+        # ----------------------------------------------------------------------
+        # Save data
+        # ----------------------------------------------------------------------
+        await save_player_records(guild_id, records)
+
+        # ----------------------------------------------------------------------
+        # Reply
+        # ----------------------------------------------------------------------
+        await interaction.response.send_message(
+            f"✅ Added **{final_key}** to your active PPE.",
+            ephemeral=True
+        )
+
 
     
 @bot.tree.command(name="addpointsfor", description="Add points to another player's active PPE.", guilds=guilds)
