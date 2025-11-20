@@ -536,31 +536,83 @@ async def listplayers(interaction: discord.Interaction):
     await interaction.response.send_message("\n".join(lines))
 
 @bot.tree.command(name="listloot", description="Show all PPEs and loot for a player.", guilds=guilds)
+@require_ppe_roles(player_required=True)
 async def listloot(interaction: discord.Interaction, member: discord.Member):
-    guild_id = interaction.guild.id
-    # print("member.id:", member.id)
-    # for i in interaction.guild.members:
-    #     print(i.id, i.display_name)
-    # if interaction.guild.get_member(member.id) is None:
-    #     return await interaction.response.send_message("❌ That member is not in this server.")
     
-    records = await load_player_records(guild_id)
-    key = ensure_player_exists(records, member.display_name.lower())
+        guild = interaction.guild
 
-    if key not in records or not records[key]["ppes"]:
-        return await interaction.response.send_message(f"❌ `{member.display_name}` doesn’t have any PPEs yet.")
+        if guild is None:
+            await interaction.response.send_message(
+                "❌ This command can only be used inside a server.",
+                ephemeral=True
+            )
+            return
 
-    player_data = records[key]
+        # Load PPE records
+        guild_id = guild.id
+        records = await load_player_records(guild_id)
 
-    lines = [f"`{member.display_name}'s` PPEs and Loot:"]
-    for ppe in sorted(player_data["ppes"], key=lambda x: x["id"]):
-        id_ = ppe["id"]
-        pts = ppe.get("points", 0)
-        items = ppe.get("items", [])
-        item_list = ", ".join(items) if items else "No items yet"
-        lines.append(f"• PPE #{id_} `{ppe['name']}`: `{pts:.1f}` points — Items: {item_list}")
+        # Normalize key
+        key = ensure_player_exists(records, member.display_name.lower())
 
-    await interaction.response.send_message("\n".join(lines))
+        # ------------------------------------------------------------
+        # GUARD 3: Member has no PPE records
+        # ------------------------------------------------------------
+        if key not in records:
+            await interaction.response.send_message(
+                f"❌ {member.mention} has no PPE data in this server.",
+                ephemeral=True
+            )
+            return
+
+        player_data = records[key]
+
+        # ------------------------------------------------------------
+        # GUARD 4: Member has PPE records but no PPE runs
+        # ------------------------------------------------------------
+        if not player_data.get("ppes"):
+            await interaction.response.send_message(
+                f"ℹ️ {member.mention} exists in PPE data but has **no PPE runs**.",
+                ephemeral=True
+            )
+            return
+
+        # ------------------------------------------------------------
+        # GUARD 5: Member has no active PPE
+        # ------------------------------------------------------------
+        active_ppe = get_active_ppe(player_data)
+        if not active_ppe:
+            await interaction.response.send_message(
+                f"ℹ️ {member.mention} has **no active PPE**.",
+                ephemeral=True
+            )
+            return
+
+        # ------------------------------------------------------------
+        # GUARD 6: Active PPE has no loot
+        # ------------------------------------------------------------
+        loot_dict = active_ppe.get("loot", {})
+        if not loot_dict:
+            await interaction.response.send_message(
+                f"ℹ️ {member.mention}'s active PPE has **no loot recorded**.",
+                ephemeral=True
+            )
+            return
+
+        # ------------------------------------------------------------
+        # Build loot listing (sorted alphabetically)
+        # ------------------------------------------------------------
+        loot_lines = []
+        for item, count in sorted(loot_dict.items()):
+            loot_lines.append(f"• **{item}** × {count}")
+
+        embed = discord.Embed(
+            title=f"Loot for {member.display_name}'s Active PPE",
+            description="\n".join(loot_lines),
+            color=discord.Color.gold()
+        )
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @bot.tree.command(name="addplayer", description="Add a player to the PPE contest.", guilds=guilds)
