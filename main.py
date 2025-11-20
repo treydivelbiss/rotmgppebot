@@ -380,10 +380,8 @@ async def addloot(
 
         guild_id = guild.id
         records = await load_player_records(guild_id)
-        ensure_player_exists(records, user.display_name.lower())
+        key = ensure_player_exists(records, user.display_name.lower())
 
-        # Normalize user key
-        key = user.name.lower()
 
         # ----------------------------------------------------------------------
         # GUARD 2: Player must exist in PPE records
