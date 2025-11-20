@@ -466,7 +466,7 @@ async def addplayer(interaction: discord.Interaction, member: discord.Member):
 
     guild_id = interaction.guild.id
     records = await load_player_records(guild_id)
-    key = ensure_player_exists(member.display_name.lower())
+    key = ensure_player_exists(records, member.display_name.lower())
 
     if role in member.roles:
         records[key]["is_member"] = True
