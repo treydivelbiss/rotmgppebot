@@ -312,13 +312,14 @@ async def submitloot(
         )
 
     # Validate dimensions
-    h, w = img.shape[:2]
-    if (w, h) != (1920, 1080):
-        return await interaction.followup.send(
-            f"❌ Invalid screenshot size: **{w}×{h}**.\n"
-            f"Please upload a **1920×1080** screenshot.",
-            ephemeral=True
-        )
+    # h, w = img.shape[:2]
+    # if (w, h) != (1920, 1080):
+    #     return await interaction.followup.send(
+    #         f"❌ Invalid screenshot size: **{w}×{h}**.\n"
+    #         f"Please upload a **1920×1080** screenshot.",
+    #         ephemeral=True
+    #     )
+    # allow all dimensions
     
 
     # --- Prepare download directory ---
