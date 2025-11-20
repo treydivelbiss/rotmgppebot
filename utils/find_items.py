@@ -152,7 +152,7 @@ def find_items_in_image(
             tpl_hsv  = cv2.cvtColor(tpl_crop_top,  cv2.COLOR_BGR2HSV)
 
             mask_bool = mask_crop_top > 10
-            
+
             # Exclude black (low-value) pixels in both images
             slot_v = slot_hsv[..., 2]
             tpl_v  = tpl_hsv[..., 2]
@@ -174,7 +174,7 @@ def find_items_in_image(
                 color_score = 0.5  # neutral fallback
 
             # --- Combine structure + color weighting ---
-            final_val = 0.7 * structural_val + 0.3 * color_score
+            final_val = 0.5 * structural_val + 0.5 * color_score
 
             # --- Update best match if higher confidence ---
             if final_val > best_val:
