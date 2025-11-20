@@ -345,8 +345,8 @@ async def submitloot(
         # add points to total points of active ppe
 
         # add items to active ppe
-        for detected_loot in found_items:
-            additem(detected_loot["item"], active_ppe)
+        # for detected_loot in found_items:
+        #     additem(detected_loot["item"], active_ppe)
 
         msg_lines = [f"`{player_name}'s` Loot Summary:"]
         for loot in loot_results:
@@ -361,8 +361,8 @@ async def submitloot(
 async def addloot(
         interaction: discord.Interaction,
         item_name: str,
-        isDivine: bool = False,
-        isShiny: bool = False
+        divine: bool = False,
+        shiny: bool = False
     ):
         guild = interaction.guild
         user = interaction.user
@@ -420,9 +420,9 @@ async def addloot(
         # Generate variant suffix
         # ----------------------------------------------------------------------
         suffix_parts = []
-        if isDivine:
+        if divine:
             suffix_parts.append("(divine)")
-        if isShiny:
+        if shiny:
             suffix_parts.append("(shiny)")
 
         if suffix_parts:
