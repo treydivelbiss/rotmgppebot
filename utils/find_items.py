@@ -2,13 +2,22 @@ import cv2
 import numpy as np
 import os
 
+corner0ratiofromright = 0.3185185
+corner0ratiofrombottom = 0.1583333
 
+corner1ratiofromright = 0.01111111
+corner1ratiofrombottom = 0.00462963
+
+slotwidthratio = 0.0638888
+slotheightratio = 0.0638888
+
+grayborderratio = 0.0037037037
 
 
 def find_items_in_image(
     screenshot_path,
     templates_folder="./sprites/",
-    threshold=0.85,
+    threshold=0.8,
     debug_output="./debug/"
 ):
     """
@@ -23,14 +32,33 @@ def find_items_in_image(
     if img is None:
         print(f"⚠️ Could not read {screenshot_path}")
         return []
+    
+    width = img.shape[1]  # width doesnt matter
+    height = img.shape[0]
+    
+    # For screen dimensions 1920x1080
 
     # --- 2. Crop loot GUI (bottom-right corner) ---
-    x0, y0, x1, y1 = 1576, 909, 1908, 1075
+    # x0, y0, x1, y1 = 1576, 909, 1908, 1075
+    x0 = int(round(width - height * corner0ratiofromright))
+    y0 = int(round(height - height * corner0ratiofrombottom))
+    x1 = int(round(width - height * corner1ratiofromright))
+    y1 = int(round(height - height * corner1ratiofrombottom))
+
+    print(f"[DEBUG] Loot GUI crop coords: x0={x0}, y0={y0}, x1={x1}, y1={y1}")
+
     loot_gui = img[y0:y1, x0:x1]
     loot_h, loot_w = loot_gui.shape[:2]
 
-    slot_height = 69
-    slot_width = 69
+    slot_height = int(round(height * slotheightratio))
+    slot_width = int(round(height * slotwidthratio))
+    gray_border = int(round(height * grayborderratio))
+
+    print(f"[DEBUG] Slot size: {slot_width}x{slot_height}, Gray border: {gray_border}")
+
+    # slot_height = 69
+    # slot_width = 69
+    # gray_border = 4
 
     # --- Save cropped source image for debugging ---
     os.makedirs("./cropped", exist_ok=True)
@@ -42,6 +70,9 @@ def find_items_in_image(
     rows, cols = 2, 4
     cell_w = loot_w // cols   # ≈81 px
     cell_h = loot_h // rows   # ≈80 px
+
+    x_pad = (cell_w - slot_width - gray_border) // 2
+    y_pad = (cell_h - slot_height - gray_border) // 2
 
     slots = []
     for row in range(rows):
@@ -79,8 +110,7 @@ def find_items_in_image(
     for i, (sx, sy, sw, sh) in enumerate(slots):
         # Extract inner 70x70 area (centered, remove border)
         inner_w, inner_h = slot_height, slot_width
-        x_pad = (sw - inner_w - 4) // 2
-        y_pad = (sh - inner_h - 4) // 2
+        
         slot_crop = loot_gui[sy + y_pad : sy + y_pad + inner_h,
                              sx + x_pad : sx + x_pad + inner_w]
 
@@ -122,8 +152,19 @@ def find_items_in_image(
             tpl_hsv  = cv2.cvtColor(tpl_crop_top,  cv2.COLOR_BGR2HSV)
 
             mask_bool = mask_crop_top > 10
-            slot_hue = slot_hsv[..., 0][mask_bool]
-            tpl_hue  = tpl_hsv[..., 0][mask_bool]
+            
+            # Exclude black (low-value) pixels in both images
+            slot_v = slot_hsv[..., 2]
+            tpl_v  = tpl_hsv[..., 2]
+
+            slot_not_black = slot_v > 30
+            tpl_not_black  = tpl_v > 30
+
+            # Combine masks: only valid colored pixels
+            valid_mask = mask_bool & slot_not_black & tpl_not_black
+
+            slot_hue = slot_hsv[..., 0][valid_mask]
+            tpl_hue  = tpl_hsv[..., 0][valid_mask]
 
             if len(slot_hue) and len(tpl_hue):
                 hue_diff = np.median(np.abs(slot_hue.astype(np.float32) - tpl_hue.astype(np.float32)))
@@ -180,7 +221,8 @@ def find_items_in_image(
                 # Paste template on annotated image
                 overlay_template(annotated, tpl_bgr_resized, tpl_alpha_resize, sx + x_pad, sy + y_pad)
         else:
-            print(f"[DEBUG] Slot {i+1}: No confident match | {best_item:<30s} (best={best_val:.3f})")
+            print(f"[DEBUG] Slot {i+1}: No confident match | {best_item:<30s} (best={best_val:.3f}) | "
+                  f"(Structure: {best_structural:.3f}, Color: {best_color:.3f})")
 
     save_slot_debug_image(loot_gui, slots)
 
