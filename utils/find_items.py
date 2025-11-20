@@ -105,7 +105,7 @@ def find_items_in_image(
             # Check variance of the slot — if it's basically flat gray, skip it
             slot_var = np.var(slot_img)
             if slot_var < 5:  # tweak threshold (typical empty gray variance ≈ 0–2)
-                print(f"[DEBUG] Slot {i}: Empty or flat background detected (variance={slot_var:.3f}) — skipping.")
+                print(f"[DEBUG] Slot {i+1}: Empty or flat background detected (variance={slot_var:.3f}) — skipping.")
                 break
 
             res = cv2.matchTemplate(slot_blur, tpl_blur, cv2.TM_CCOEFF_NORMED, mask=mask_crop_top)
@@ -136,7 +136,11 @@ def find_items_in_image(
 
 
         # --- Record if above threshold ---
-        if best_item and best_val >= threshold:
+        if best_item is None:
+            # print(f"[DEBUG] Slot {i+1}: No templates to match against.")
+            # Empty slot, skipping
+            continue
+        elif best_item != None and best_val >= threshold:
             detections.append({
                 "slot": i + 1,
                 "item": best_item,
