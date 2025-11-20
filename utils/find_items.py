@@ -3,6 +3,8 @@ import numpy as np
 import os
 
 
+
+
 def find_items_in_image(
     screenshot_path,
     templates_folder="./sprites/",
@@ -23,9 +25,12 @@ def find_items_in_image(
         return []
 
     # --- 2. Crop loot GUI (bottom-right corner) ---
-    x0, y0, x1, y1 = 1575, 908, 1905, 1072
+    x0, y0, x1, y1 = 1576, 909, 1908, 1075
     loot_gui = img[y0:y1, x0:x1]
     loot_h, loot_w = loot_gui.shape[:2]
+
+    slot_height = 69
+    slot_width = 69
 
     # --- Save cropped source image for debugging ---
     os.makedirs("./cropped", exist_ok=True)
@@ -41,7 +46,7 @@ def find_items_in_image(
     slots = []
     for row in range(rows):
         for col in range(cols):
-            sx = col * (cell_w + 1) # +1 px gap for border
+            sx = col * (cell_w + 0) # +1 px gap for border
             sy = row * (cell_h + 0)
             slots.append((sx, sy, cell_w, cell_h))
 
@@ -73,9 +78,9 @@ def find_items_in_image(
     # --- 5. For each slot, run detection ---
     for i, (sx, sy, sw, sh) in enumerate(slots):
         # Extract inner 70x70 area (centered, remove border)
-        inner_w, inner_h = 69, 69
-        x_pad = (sw - inner_w) // 2
-        y_pad = (sh - inner_h) // 2
+        inner_w, inner_h = slot_height, slot_width
+        x_pad = (sw - inner_w - 4) // 2
+        y_pad = (sh - inner_h - 4) // 2
         slot_crop = loot_gui[sy + y_pad : sy + y_pad + inner_h,
                              sx + x_pad : sx + x_pad + inner_w]
 
@@ -83,6 +88,7 @@ def find_items_in_image(
         slot_img = cv2.resize(slot_crop, (40, 40), interpolation=cv2.INTER_AREA)
 
         best_item, best_val = None, 0.0
+        best_structural, best_color = 0.0, 0.0
 
         # --- Loop through templates ---
         for item_name, bgr, alpha in templates:
@@ -120,7 +126,7 @@ def find_items_in_image(
             tpl_hue  = tpl_hsv[..., 0][mask_bool]
 
             if len(slot_hue) and len(tpl_hue):
-                hue_diff = np.mean(np.abs(slot_hue.astype(np.float32) - tpl_hue.astype(np.float32)))
+                hue_diff = np.median(np.abs(slot_hue.astype(np.float32) - tpl_hue.astype(np.float32)))
                 hue_diff = np.minimum(hue_diff, 180 - hue_diff)  # handle wraparound (OpenCV hue 0–180)
                 color_score = 1.0 - min(hue_diff / 90.0, 1.0)
             else:
@@ -133,6 +139,8 @@ def find_items_in_image(
             if final_val > best_val:
                 best_val = final_val
                 best_item = item_name
+                best_structural = structural_val
+                best_color = color_score
 
 
         # --- Record if above threshold ---
@@ -146,7 +154,8 @@ def find_items_in_image(
                 "item": best_item,
                 "confidence": float(best_val)
             })
-            print(f"[DEBUG] Slot {i+1}: {best_item:30s} | Confidence: {best_val:.3f}")
+            print(f"[DEBUG] Slot {i+1}: {best_item:30s} | Confidence: {best_val:.3f} | "
+                  f"(Structure: {best_structural:.3f}, Color: {best_color:.3f})")
 
             # Draw rectangle on annotated image
             cv2.rectangle(annotated, (sx + x_pad, sy + y_pad), (sx+x_pad+inner_w, sy+y_pad+inner_h), (0, 0, 255), 2)
@@ -165,8 +174,8 @@ def find_items_in_image(
 
             if template_bgr is not None:
                 # Ensure size is 40x40 so it matches the slot region
-                tpl_bgr_resized  = cv2.resize(template_bgr,  (69, 69), interpolation=cv2.INTER_AREA)
-                tpl_alpha_resize = cv2.resize(template_alpha, (69, 69), interpolation=cv2.INTER_NEAREST)
+                tpl_bgr_resized  = cv2.resize(template_bgr,  (slot_height, slot_width), interpolation=cv2.INTER_AREA)
+                tpl_alpha_resize = cv2.resize(template_alpha, (slot_height, slot_width), interpolation=cv2.INTER_NEAREST)
 
                 # Paste template on annotated image
                 overlay_template(annotated, tpl_bgr_resized, tpl_alpha_resize, sx + x_pad, sy + y_pad)

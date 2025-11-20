@@ -3,10 +3,12 @@
 from find_items import find_items_in_image
 
 # file_path = "./downloads/screenshot.png"
-file_path = "./downloads/merlot2.png"
+# file_path = "./downloads/merlot2.png"
+file_path = "./downloads/doublewhite.png"
 # dungeon = "Wine Cellar"
 # dungeon = "Ice Citadel"
-dungeon = "Oryx's Chamber"
+# dungeon = "Oryx's Chamber"
+dungeon = "Oryx's Sanctuary"
 
 found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
 if found_items:
