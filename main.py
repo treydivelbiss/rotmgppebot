@@ -184,12 +184,12 @@ async def newppe(interaction: discord.Interaction, class_name: str):
     guild_id = interaction.guild.id
     records = await load_player_records(guild_id)
     key = interaction.user.display_name.lower()
-
+    ensure_player_exists(records, key)
     # players can make ppe
 
-    # if key not in records, make new entry
-    if key not in records:
-        records[key] = {"ppes": [], "active_ppe": None, "is_member": True}
+    # # if key not in records, make new entry
+    # if key not in records:
+    #     records[key] = {"ppes": [], "active_ppe": None, "is_member": True}
     player_data = records[key]
 
     # --- PPE limit check ---
@@ -358,6 +358,7 @@ async def submitloot(
     
     
 @bot.tree.command(name="addloot", description="Add an item to your active PPE's loot.", guilds=guilds)
+@require_ppe_roles(player_required=True)
 async def addloot(
         interaction: discord.Interaction,
         item_name: str,
@@ -379,6 +380,7 @@ async def addloot(
 
         guild_id = guild.id
         records = await load_player_records(guild_id)
+        ensure_player_exists(records, user.display_name.lower())
 
         # Normalize user key
         key = user.name.lower()

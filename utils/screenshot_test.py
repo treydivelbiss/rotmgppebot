@@ -2,10 +2,13 @@
 
 from find_items import find_items_in_image
 
-file_path = "./downloads/merlot2.png"
+# file_path = "./downloads/merlot2.png"
 # dungeon = "Wine Cellar"
 
-dungeon = "Oryx's Chamber"
+# dungeon = "Oryx's Chamber"
+
+file_path = "./downloads/broken.png"
+dungeon = "Mountain Temple"
 
 
 # file_path = "./downloads/screenshot.png"

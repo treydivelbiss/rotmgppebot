@@ -83,7 +83,7 @@ def ensure_player_exists(records: dict, player_name: str):
     """Ensure a player entry exists with at least one PPE."""
     key = player_name.lower()
     if key not in records:
-        records[key] = {"ppes": [], "active_ppe": None}
+        records[key] = {"ppes": [], "active_ppe": None, "is_member": True}
     return key
 
 
