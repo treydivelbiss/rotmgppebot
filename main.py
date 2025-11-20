@@ -454,6 +454,30 @@ async def listplayers(interaction: discord.Interaction):
 
     await interaction.response.send_message("\n".join(lines))
 
+@bot.tree.command(name="listloot", description="Show all PPEs and loot for a player.", guilds=guilds)
+async def listloot(interaction: discord.Interaction, member: discord.Member):
+    guild_id = interaction.guild.id
+    if member not in interaction.guild.members:
+        return await interaction.response.send_message("❌ That member is not in this server.")
+    
+    records = await load_player_records(guild_id)
+    key = ensure_player_exists(records, member.display_name.lower())
+
+    if key not in records or not records[key]["ppes"]:
+        return await interaction.response.send_message(f"❌ `{member.display_name}` doesn’t have any PPEs yet.")
+
+    player_data = records[key]
+
+    lines = [f"`{member.display_name}'s` PPEs and Loot:"]
+    for ppe in sorted(player_data["ppes"], key=lambda x: x["id"]):
+        id_ = ppe["id"]
+        pts = ppe.get("points", 0)
+        items = ppe.get("items", [])
+        item_list = ", ".join(items) if items else "No items yet"
+        lines.append(f"• PPE #{id_} `{ppe['name']}`: `{pts:.1f}` points — Items: {item_list}")
+
+    await interaction.response.send_message("\n".join(lines))
+
 
 @bot.tree.command(name="addplayer", description="Add a player to the PPE contest.", guilds=guilds)
 # @commands.has_role("PPE Admin")
