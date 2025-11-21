@@ -10,7 +10,7 @@ def load_loot_points():
     with open(LOOT_POINTS_CSV, newline='', encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            name = row["Item Name"].strip().lower()
+            name = row["Item Name"].strip()
             points = float(row["Points"])
             loot_points[name] = points
     return loot_points
