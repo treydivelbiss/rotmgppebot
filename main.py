@@ -567,7 +567,9 @@ async def listplayers(interaction: discord.Interaction):
 
 @bot.tree.command(name="listloot", description="Show all PPEs and loot for a player.", guilds=guilds)
 @require_ppe_roles(player_required=True)
-async def listloot(interaction: discord.Interaction, member: discord.Member):
+async def listloot(interaction: discord.Interaction):
+        # member is the command caller
+        member = interaction.user
     
         guild = interaction.guild
 
