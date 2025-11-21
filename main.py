@@ -511,7 +511,7 @@ async def addpointsfor(interaction: discord.Interaction, member: discord.Member,
 # @require_ppe_roles(player_required=True)
 async def addpoints(interaction: discord.Interaction, amount: float):
     if amount == 0:
-        raise ValueError("⚠️ No points were added or subtracted since the amount was `0`.", ephemeral=True)
+        raise ValueError("⚠️ No points were added or subtracted since the amount was `0`.")
     guild_id = interaction.guild.id
     records = await load_player_records(guild_id)
     key = interaction.user.display_name.lower()
