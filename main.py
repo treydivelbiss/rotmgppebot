@@ -213,8 +213,7 @@ async def newppe(interaction: discord.Interaction, class_name: str):
 
     guild_id = interaction.guild.id
     records = await load_player_records(guild_id)
-    key = interaction.user.display_name.lower()
-    ensure_player_exists(records, key)
+    key = ensure_player_exists(records, interaction.user.display_name.lower())
     # players can make ppe
 
     # # if key not in records, make new entry
@@ -240,7 +239,7 @@ async def newppe(interaction: discord.Interaction, class_name: str):
         # "class": class_name,      # ⬅️ STORED CLASS NAME
         "name": class_name,
         "points": 0,
-        "items": []
+        "loot": []
     }
 
     player_data["ppes"].append(new_ppe)
@@ -497,7 +496,7 @@ async def removeloot(
             return
 
         records = await load_player_records(guild.id)
-        key = user.name.lower()
+        key = ensure_player_exists(records, user.display_name.lower())
 
         #  Guard 2 — player must exist
         if key not in records:
