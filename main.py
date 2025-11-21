@@ -8,7 +8,7 @@ import os
 import json
 
 from utils.find_items import find_items_in_image
-from utils.calc_points import calculate_loot_points
+from utils.calc_points import calc_points, calculate_loot_points
 from utils.player_records import get_active_ppe, load_player_records, save_player_records, ensure_player_exists
 from utils.role_checks import require_ppe_roles
 
@@ -340,21 +340,21 @@ async def submitloot(
     found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
     if found_items:
         player_name = str(interaction.user.display_name)
-        loot_results, total = await calculate_loot_points(interaction.guild.id, player_name, found_items)
+        # loot_results, total = await calculate_loot_points(interaction.guild.id, player_name, found_items)
 
         # add points to total points of active ppe
 
         # add items to active ppe
-        # for detected_loot in found_items:
-        #     additem(detected_loot["item"], active_ppe)
+        for detected_loot in found_items:
+            await addloot(interaction=interaction, item_name=detected_loot["item"], divine=detected_loot["divine"], shiny=detected_loot["shiny"])
 
-        msg_lines = [f"`{player_name}'s` Loot Summary:"]
-        for loot in loot_results:
-            dup_tag = " (Duplicate ⚠️)" if loot["duplicate"] else ""
-            msg_lines.append(f"- {loot['item']}: +`{loot['points']}` points{dup_tag}")
-        msg_lines.append(f"Total Points: `{total:.1f}`")
+        # msg_lines = [f"`{player_name}'s` Loot Summary:"]
+        # for loot in loot_results:
+        #     dup_tag = " (Duplicate ⚠️)" if loot["duplicate"] else ""
+        #     msg_lines.append(f"- {loot['item']}: +`{loot['points']}` points{dup_tag}")
+        # msg_lines.append(f"Total Points: `{total:.1f}`")
 
-        await interaction.followup.send("\n".join(msg_lines))
+        # await interaction.followup.send("\n".join(msg_lines))
     
     
 @bot.tree.command(name="addloot", description="Add an item to your active PPE's loot.", guilds=guilds)
@@ -379,6 +379,7 @@ async def addloot(
             return
 
         guild_id = guild.id
+        points = await calc_points(guild_id, user.display_name, item_name, divine, shiny)
         records = await load_player_records(guild_id)
         key = ensure_player_exists(records, user.display_name.lower())
 
@@ -435,6 +436,8 @@ async def addloot(
         # ----------------------------------------------------------------------
         loot_dict[final_key] = loot_dict.get(final_key, 0) + 1
 
+        await addpoints(interaction, points)
+
         # ----------------------------------------------------------------------
         # Save data
         # ----------------------------------------------------------------------
@@ -444,9 +447,11 @@ async def addloot(
         # Reply
         # ----------------------------------------------------------------------
         await interaction.response.send_message(
-            f"✅ Added **{final_key}** to your active PPE.",
+            f"✅ Added **{final_key}** to your active PPE for {points} points.",
             ephemeral=True
         )
+
+
 
 
     

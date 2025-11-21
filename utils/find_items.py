@@ -193,7 +193,9 @@ def find_items_in_image(
             detections.append({
                 "slot": i + 1,
                 "item": best_item,
-                "confidence": float(best_val)
+                "confidence": float(best_val),
+                "divine": False,
+                "shiny": False,
             })
             print(f"[DEBUG] Slot {i+1}: {best_item:30s} | Confidence: {best_val:.3f} | "
                   f"(Structure: {best_structural:.3f}, Color: {best_color:.3f})")

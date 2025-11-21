@@ -61,9 +61,9 @@ async def calculate_loot_points(guild_id, player_name, detected_items):
             final_points = 1
 
         # --- update PPE items + points ---
-        if not is_duplicate:
-            active_ppe.setdefault("items", []).append(item_name)
-        active_ppe["points"] = active_ppe.get("points", 0) + final_points
+        # if not is_duplicate:
+        #     active_ppe.setdefault("items", []).append(item_name)
+        # active_ppe["points"] = active_ppe.get("points", 0) + final_points
 
         results.append({
             "item": item["item"],
@@ -74,3 +74,62 @@ async def calculate_loot_points(guild_id, player_name, detected_items):
     
     await save_player_records(guild_id=guild_id, records=records)
     return results, active_ppe["points"]
+
+async def calc_points(guild_id: int, player_name: str, item: str, divine: bool, shiny: bool) -> float:
+    loot_points = load_loot_points()
+    key = player_name.lower()
+
+    records = await load_player_records(guild_id)
+
+    if key not in records or not records[key].get("is_member", False):
+        raise ValueError(f"{player_name} is not a contest member.")
+
+    player_data = records[key]
+    active_id = player_data.get("active_ppe")
+    if not active_id:
+        raise ValueError(f"{player_name} has no active PPE.")
+
+    # --- get active PPE object ---
+    active_ppe = next((p for p in player_data["ppes"] if p["id"] == active_id), None)
+    if not active_ppe:
+        raise ValueError(f"Active PPE (#{active_id}) not found for {player_name}.")
+
+    item_name = item.lower()
+    # if divine:
+    #     item_name = item_name + "(divine)"
+    if shiny:
+        base_points = loot_points.get(item_name + " (shiny)", 0)
+    else:
+        base_points = loot_points.get(item_name, 0)
+    
+    suffix_parts = []
+    if divine:
+        suffix_parts.append("(divine)")
+    if shiny:
+        suffix_parts.append("(shiny)")
+
+    if suffix_parts:
+        item_name = f"{item_name} " + " ".join(suffix_parts)
+
+    if base_points <= 0:
+        return 0.0
+
+    if base_points != 1:
+
+        # --- check duplicate inside this PPE's item list ---
+        existing_items = [i.lower() for i in active_ppe.get("loot", [])]
+        is_duplicate = item_name in existing_items
+        final_points = base_points / 2 if is_duplicate else base_points
+        
+    else:
+        is_duplicate = False
+        final_points = 1.0
+
+    if divine:
+        final_points = final_points * 2
+
+    # --- round down to nearest 0.5 ---
+    import math
+    final_points = math.floor(final_points * 2) / 2
+
+    return final_points
