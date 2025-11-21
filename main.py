@@ -486,10 +486,10 @@ async def addloot(
         # ----------------------------------------------------------------------
         # Reply
         # ----------------------------------------------------------------------
-        # await interaction.response.send_message(
-        #     f"✅ Added **{final_key}** to your active PPE for {points} points.",
-        #     ephemeral=True
-        # )
+        await interaction.followup.send(
+            f"✅ Added **{final_key}** to your active PPE for {points} points.",
+            ephemeral=False
+        )
 
 
 
