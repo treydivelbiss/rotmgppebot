@@ -629,9 +629,7 @@ async def listloot(interaction: discord.Interaction, member: discord.Member):
             )
             return
 
-        # ------------------------------------------------------------
         # Build loot listing (sorted alphabetically)
-        # ------------------------------------------------------------
         loot_lines = []
         for item, count in sorted(loot_dict.items()):
             loot_lines.append(f"• **{item}** × {count}")
