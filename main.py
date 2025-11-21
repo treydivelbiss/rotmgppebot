@@ -567,8 +567,8 @@ async def removeloot(
             return await interaction.response.send_message(str(e), ephemeral=True)
 
         await interaction.response.send_message(
-            f"🗑️ Removed **1x {final_key}** from your active PPE.",
-            ephemeral=True
+            f"🗑️ Removed **1x {final_key}** from your active PPE and took away {points} points.",
+            ephemeral=False
         )
 
 
