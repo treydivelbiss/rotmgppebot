@@ -493,22 +493,22 @@ async def addpointsfor(interaction: discord.Interaction, member: discord.Member,
 # @require_ppe_roles(player_required=True)
 async def addpoints(interaction: discord.Interaction, amount: float):
     if amount == 0:
-        return await interaction.followup.send("⚠️ No points were added or subtracted since the amount was `0`.", ephemeral=True)
+        return await interaction.response.send_message("⚠️ No points were added or subtracted since the amount was `0`.", ephemeral=True)
     guild_id = interaction.guild.id
     records = await load_player_records(guild_id)
     key = interaction.user.display_name.lower()
 
     # Must be a contest member
     if key not in records or not records[key].get("is_member", False):
-        return await interaction.followup.send("❌ You’re not part of the PPE contest. Ask a mod to add you with `/addplayer @you`.")
+        return await interaction.response.send_message("❌ You’re not part of the PPE contest. Ask a mod to add you with `/addplayer @you`.")
     player_data = records[key]
     active_id = player_data.get("active_ppe")
     if not active_id:
-        return await interaction.followup.send("❌ You don’t have an active PPE. Use `/newppe` to create one first.")
+        return await interaction.response.send_message("❌ You don’t have an active PPE. Use `/newppe` to create one first.")
     # Find the active PPE
     active_ppe = next((p for p in player_data["ppes"] if p["id"] == active_id), None)
     if not active_ppe:
-        return await interaction.followup.send("❌ Could not find your active PPE record. Try creating a new one with `/newppe`.")
+        return await interaction.response.send_message("❌ Could not find your active PPE record. Try creating a new one with `/newppe`.")
     # Add points (rounded down to nearest 0.5)
     import math
     amount = math.floor(amount * 2) / 2
@@ -516,11 +516,11 @@ async def addpoints(interaction: discord.Interaction, amount: float):
     await save_player_records(guild_id=guild_id, records=records)
 
     if amount > 0:
-        return await interaction.followup.send(f"✅ Added `{amount:.1f}` points to your `{active_ppe["name"]}` (PPE #{active_id}).\n"
+        return await interaction.response.send_message(f"✅ Added `{amount:.1f}` points to your `{active_ppe["name"]}` (PPE #{active_id}).\n"
                     f"New total: `{active_ppe['points']:.1f}` points.")
 
     elif amount < 0:
-        return await interaction.followup.send(f"✅ Subtracted `{amount:.1f}` points from your `{active_ppe["name"]}` (PPE #{active_id}).\n"
+        return await interaction.response.send_message(f"✅ Subtracted `{amount:.1f}` points from your `{active_ppe["name"]}` (PPE #{active_id}).\n"
                     f"New total: `{active_ppe['points']:.1f}` points.")
     # else:
     #     return await interaction.followup.send(f"⚠️ No points were added or subtracted since the amount was `0`.")
