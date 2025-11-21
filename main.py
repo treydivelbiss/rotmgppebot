@@ -483,9 +483,9 @@ async def addpointsfor(interaction: discord.Interaction, member: discord.Member,
                     f"`New total:` {active_ppe['points']:.1f} points.")
 
 
-@bot.tree.command(name="addpoints", description="Add points to your active PPE.", guilds=guilds)
-# @commands.has_role("PPE Player")
-@require_ppe_roles(player_required=True)
+# @bot.tree.command(name="addpoints", description="Add points to your active PPE.", guilds=guilds)
+# # @commands.has_role("PPE Player")
+# @require_ppe_roles(player_required=True)
 async def addpoints(interaction: discord.Interaction, amount: float):
     guild_id = interaction.guild.id
     records = await load_player_records(guild_id)
