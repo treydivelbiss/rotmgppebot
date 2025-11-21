@@ -475,7 +475,102 @@ async def addloot(
             ephemeral=False
         )
 
+@bot.tree.command(name="removeloot", description="Remove an item from your active PPE's loot.", guilds=guilds)
+@app_commands.describe(item_name="Name of the item to remove", divine="Is the item divine?", shiny="Is the item shiny?")
+@app_commands.autocomplete(item_name=item_name_autocomplete)
+@require_ppe_roles(player_required=True)
+async def removeloot(
+        interaction: discord.Interaction,
+        item_name: str,
+        divine: bool = False,
+        shiny: bool = False
+    ):
+        guild = interaction.guild
+        user = interaction.user
 
+        #  Guard 1 — must be in guild
+        if guild is None:
+            await interaction.response.send_message(
+                "❌ This command can only be used in a server.",
+                ephemeral=True
+            )
+            return
+
+        records = await load_player_records(guild.id)
+        key = user.name.lower()
+
+        #  Guard 2 — player must exist
+        if key not in records:
+            await interaction.response.send_message(
+                "❌ You are not registered in the PPE system.",
+                ephemeral=True
+            )
+            return
+
+        player_data = records[key]
+
+        #  Guard 3 — active PPE must exist
+        active_ppe = get_active_ppe(player_data)
+        if not active_ppe:
+            await interaction.response.send_message(
+                "❌ You do not have an active PPE.",
+                ephemeral=True
+            )
+            return
+
+        loot_dict = active_ppe.setdefault("loot", {})
+
+        #  Build final loot key
+        final_key = item_name.strip()  # pretty base name
+
+        suffixes = []
+        if divine:
+            suffixes.append("(divine)")
+        if shiny:
+            suffixes.append("(shiny)")
+
+        if suffixes:
+            final_key = final_key + " " + " ".join(suffixes)
+
+        #  Guard 4 — item must exist
+        if final_key not in loot_dict:
+            await interaction.response.send_message(
+                f"❌ Your active PPE does not contain any **{final_key}**.",
+                ephemeral=True
+            )
+            return
+
+        #  Guard 5 — count must be > 0
+        if loot_dict[final_key] <= 0:
+            await interaction.response.send_message(
+                f"❌ No remaining copies of **{final_key}** to remove.",
+                ephemeral=True
+            )
+            return
+
+        #  Remove one
+        loot_dict[final_key] -= 1
+
+        # If count hits 0, remove entry
+        if loot_dict[final_key] <= 0:
+            del loot_dict[final_key]
+
+        await save_player_records(guild.id, records)
+
+        try:
+            points = await calc_points(guild.id, user.display_name, item_name, divine, shiny)
+        except ValueError as e:
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
+        try:
+            await addpoints(interaction, -points)
+        except (ValueError, KeyError, LookupError) as e:
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
+        await interaction.response.send_message(
+            f"🗑️ Removed **1x {final_key}** from your active PPE.",
+            ephemeral=True
+        )
 
 
     
