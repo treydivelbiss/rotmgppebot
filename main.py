@@ -379,7 +379,12 @@ async def addloot(
             return
 
         guild_id = guild.id
-        points = await calc_points(guild_id, user.display_name, item_name, divine, shiny)
+        try:
+            points = await calc_points(guild_id, user.display_name, item_name, divine, shiny)
+        except ValueError as e:
+            return await interaction.response.send_message(str(e), ephemeral=True)
+
+
         records = await load_player_records(guild_id)
         key = ensure_player_exists(records, user.display_name.lower())
 
