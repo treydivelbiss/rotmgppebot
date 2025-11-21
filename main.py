@@ -400,9 +400,7 @@ async def addloot(
         guild = interaction.guild
         user = interaction.user
 
-        # ----------------------------------------------------------------------
         # GUARD 1: Must be used in a guild
-        # ----------------------------------------------------------------------
         if guild is None:
             await interaction.response.send_message(
                 "❌ This command can only be used in a server.",
@@ -424,9 +422,7 @@ async def addloot(
         key = ensure_player_exists(records, user.display_name.lower())
 
 
-        # ----------------------------------------------------------------------
         # GUARD 2: Player must exist in PPE records
-        # ----------------------------------------------------------------------
         if key not in records:
             await interaction.response.send_message(
                 "❌ You are not registered in the PPE system.",
@@ -436,9 +432,7 @@ async def addloot(
 
         player_data = records[key]
 
-        # ----------------------------------------------------------------------
         # GUARD 3: Player must have an active PPE
-        # ----------------------------------------------------------------------
         active_ppe = get_active_ppe(player_data)
         if not active_ppe:
             await interaction.response.send_message(
@@ -447,19 +441,13 @@ async def addloot(
             )
             return
 
-        # ----------------------------------------------------------------------
         # Prepare loot structures
-        # ----------------------------------------------------------------------
         loot_dict = active_ppe.setdefault("loot", {})
 
-        # ----------------------------------------------------------------------
         # Normalize item name
-        # ----------------------------------------------------------------------
         base_name = item_name.strip().lower()
 
-        # ----------------------------------------------------------------------
         # Generate variant suffix
-        # ----------------------------------------------------------------------
         suffix_parts = []
         if divine:
             suffix_parts.append("(divine)")
@@ -471,22 +459,17 @@ async def addloot(
         else:
             final_key = base_name
 
-        # ----------------------------------------------------------------------
         # Increment loot count
-        # ----------------------------------------------------------------------
         loot_dict[final_key] = loot_dict.get(final_key, 0) + 1
 
-        await addpoints(interaction, points)
-
-        # ----------------------------------------------------------------------
-        # Save data
-        # ----------------------------------------------------------------------
+        try:
+            await addpoints(interaction, points)
+        except (ValueError, KeyError, LookupError) as e:
+            return await interaction.response.send_message(str(e), ephemeral=True)
+        
         await save_player_records(guild_id, records)
 
-        # ----------------------------------------------------------------------
-        # Reply
-        # ----------------------------------------------------------------------
-        await interaction.followup.send(
+        await interaction.response.send_message(
             f"✅ Added **{final_key}** to your active PPE for {points} points.",
             ephemeral=False
         )
@@ -528,35 +511,35 @@ async def addpointsfor(interaction: discord.Interaction, member: discord.Member,
 # @require_ppe_roles(player_required=True)
 async def addpoints(interaction: discord.Interaction, amount: float):
     if amount == 0:
-        return await interaction.response.send_message("⚠️ No points were added or subtracted since the amount was `0`.", ephemeral=True)
+        raise ValueError(interaction.response.send_message("⚠️ No points were added or subtracted since the amount was `0`.", ephemeral=True))
     guild_id = interaction.guild.id
     records = await load_player_records(guild_id)
     key = interaction.user.display_name.lower()
 
     # Must be a contest member
     if key not in records or not records[key].get("is_member", False):
-        return await interaction.response.send_message("❌ You’re not part of the PPE contest. Ask a mod to add you with `/addplayer @you`.")
+        raise KeyError(interaction.response.send_message("❌ You’re not part of the PPE contest. Ask a mod to add you with `/addplayer @you`."))
     player_data = records[key]
     active_id = player_data.get("active_ppe")
     if not active_id:
-        return await interaction.response.send_message("❌ You don’t have an active PPE. Use `/newppe` to create one first.")
+        raise LookupError(interaction.response.send_message("❌ You don’t have an active PPE. Use `/newppe` to create one first."))
     # Find the active PPE
     active_ppe = next((p for p in player_data["ppes"] if p["id"] == active_id), None)
     if not active_ppe:
-        return await interaction.response.send_message("❌ Could not find your active PPE record. Try creating a new one with `/newppe`.")
+        raise LookupError(interaction.response.send_message("❌ Could not find your active PPE record. Try creating a new one with `/newppe`."))
     # Add points (rounded down to nearest 0.5)
     import math
     amount = math.floor(amount * 2) / 2
     active_ppe["points"] += amount
     await save_player_records(guild_id=guild_id, records=records)
 
-    if amount > 0:
-        return await interaction.response.send_message(f"✅ Added `{amount:.1f}` points to your `{active_ppe["name"]}` (PPE #{active_id}).\n"
-                    f"New total: `{active_ppe['points']:.1f}` points.")
+    # if amount > 0:
+    #     return await interaction.response.send_message(f"✅ Added `{amount:.1f}` points to your `{active_ppe["name"]}` (PPE #{active_id}).\n"
+    #                 f"New total: `{active_ppe['points']:.1f}` points.")
 
-    elif amount < 0:
-        return await interaction.response.send_message(f"✅ Subtracted `{amount:.1f}` points from your `{active_ppe["name"]}` (PPE #{active_id}).\n"
-                    f"New total: `{active_ppe['points']:.1f}` points.")
+    # elif amount < 0:
+    #     return await interaction.response.send_message(f"✅ Subtracted `{amount:.1f}` points from your `{active_ppe["name"]}` (PPE #{active_id}).\n"
+    #                 f"New total: `{active_ppe['points']:.1f}` points.")
     # else:
     #     return await interaction.followup.send(f"⚠️ No points were added or subtracted since the amount was `0`.")
 
@@ -659,7 +642,7 @@ async def listloot(interaction: discord.Interaction, member: discord.Member):
             color=discord.Color.gold()
         )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=False) # public response, not ephemeral
 
 
 @bot.tree.command(name="addplayer", description="Add a player to the PPE contest.", guilds=guilds)
