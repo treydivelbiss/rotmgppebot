@@ -410,7 +410,7 @@ async def addloot(
 
         guild_id = guild.id
 
-        item_name = item_name.strip().lower()
+        # item_name = item_name.strip().lower()
 
         try:
             points = await calc_points(guild_id, user.display_name, item_name, divine, shiny)
