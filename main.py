@@ -8,7 +8,7 @@ import os
 import json
 
 from utils.find_items import find_items_in_image
-from utils.calc_points import calc_points, calculate_loot_points
+from utils.calc_points import calc_points, calculate_loot_points, load_loot_points
 from utils.player_records import get_active_ppe, load_player_records, save_player_records, ensure_player_exists
 from utils.role_checks import require_ppe_roles
 
@@ -33,6 +33,10 @@ DUNGEONS = [
     "Rainbow Road", "Santa's Workshop", "Ice Tomb", "Battle for the Nexus", "Stromwell's Rift I", "Stromwell's Rift II", "Stromwell's Rift III",
     "Belladonna's Garden", "Queen Bunny Chamber", "Mad God Mayhem", "The Trials of Cronus", "Hidden Interregnum", "Oryxmania", "White Snake Invasion",
     "The Realm"
+]
+
+LOOT = [
+
 ]
 
 # Autocomplete function
@@ -62,6 +66,19 @@ async def dungeon_autocomplete(interaction: discord.Interaction, current: str):
         for m in matches[:25]
     ]
 
+async def item_name_autocomplete(interaction: discord.Interaction, current: str):
+
+    current_lower = current.lower()
+
+    matches = [
+        app_commands.Choice(name=pretty, value=pretty)
+        for pretty in LOOT
+        if current_lower in pretty.lower()
+    ]
+
+    return matches[:25]
+
+
 
 SERVER1_ID = 879497062117412924 # Last Oasis
 SERVER2_ID = 1435436110829326459 # Test Server
@@ -85,6 +102,19 @@ class PPEBot(commands.Bot):
                 print(f"[ERROR] Failed to sync commands to guild {guild.id}: {e}")
 
         print("Guild commands synced!")
+
+        loot_points = load_loot_points()  # load once at startup
+
+        for internal_name in loot_points.keys():
+
+            # exclude shiny variants
+            if "(shiny)" in internal_name:
+                continue
+
+            # pretty-formatting (capitalize each word)
+            pretty = " ".join(word.capitalize() for word in internal_name.split(" "))
+
+            LOOT.append(pretty)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -358,6 +388,8 @@ async def submitloot(
     
     
 @bot.tree.command(name="addloot", description="Add an item to your active PPE's loot.", guilds=guilds)
+@app_commands.describe(item_name="Name of the item to add", divine="Is the item divine?", shiny="Is the item shiny?")
+@app_commands.autocomplete(item_name=item_name_autocomplete)
 @require_ppe_roles(player_required=True)
 async def addloot(
         interaction: discord.Interaction,
@@ -379,6 +411,9 @@ async def addloot(
             return
 
         guild_id = guild.id
+
+        item_name = item_name.strip().lower()
+
         try:
             points = await calc_points(guild_id, user.display_name, item_name, divine, shiny)
         except ValueError as e:
