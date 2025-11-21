@@ -94,9 +94,11 @@ async def calc_points(guild_id: int, player_name: str, item: str, divine: bool, 
     if not active_ppe:
         raise ValueError(f"Active PPE (#{active_id}) not found for {player_name}.")
 
-    item_name = item.lower()
+    item_name = item
     # if divine:
     #     item_name = item_name + "(divine)"
+
+    # maybe send message if item not found?
     if shiny:
         base_points = loot_points.get(item_name + " (shiny)", 0)
     else:
@@ -109,7 +111,7 @@ async def calc_points(guild_id: int, player_name: str, item: str, divine: bool, 
         suffix_parts.append("(shiny)")
 
     if suffix_parts:
-        item_name = f"{item_name} " + " ".join(suffix_parts)
+        item_name = f"{item_name}" + " ".join(suffix_parts)
 
     if base_points <= 0:
         return 0.0
@@ -117,7 +119,7 @@ async def calc_points(guild_id: int, player_name: str, item: str, divine: bool, 
     if base_points != 1:
 
         # --- check duplicate inside this PPE's item list ---
-        existing_items = [i.lower() for i in active_ppe.get("loot", [])]
+        existing_items = [i for i in active_ppe.get("loot", [])]
         is_duplicate = item_name in existing_items
         final_points = base_points / 2 if is_duplicate else base_points
         

@@ -445,7 +445,7 @@ async def addloot(
         loot_dict = active_ppe.setdefault("loot", {})
 
         # Normalize item name
-        base_name = item_name.strip().lower()
+        base_name = item_name.strip()
 
         # Generate variant suffix
         suffix_parts = []
