@@ -461,13 +461,14 @@ async def addloot(
 
         # Increment loot count
         loot_dict[final_key] = loot_dict.get(final_key, 0) + 1
+        await save_player_records(guild_id, records)
+
 
         try:
             await addpoints(interaction, points)
         except (ValueError, KeyError, LookupError) as e:
             return await interaction.response.send_message(str(e), ephemeral=True)
         
-        await save_player_records(guild_id, records)
 
         await interaction.response.send_message(
             f"✅ Added **{final_key}** to your active PPE for {points} points.",
