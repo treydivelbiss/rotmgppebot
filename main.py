@@ -404,6 +404,13 @@ async def addloot(
         divine: bool = False,
         shiny: bool = False
     ):
+        if item_name not in LOOT:
+            await interaction.response.send_message(
+                f"❌ `{item_name}` is not a recognized item name.\n"
+                f"Use the autocomplete suggestions to select a valid item.",
+                ephemeral=True
+            )
+            return
         guild = interaction.guild
         user = interaction.user
 
@@ -492,6 +499,13 @@ async def removeloot(
         divine: bool = False,
         shiny: bool = False
     ):
+        if item_name not in LOOT:
+            await interaction.response.send_message(
+                f"❌ `{item_name}` is not a recognized item name.\n"
+                f"Use the autocomplete suggestions to select a valid item.",
+                ephemeral=True
+            )
+            return
         guild = interaction.guild
         user = interaction.user
 
