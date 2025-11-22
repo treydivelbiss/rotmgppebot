@@ -247,7 +247,7 @@ async def newppe(interaction: discord.Interaction, class_name: str):
         # "class": class_name,      # ⬅️ STORED CLASS NAME
         "name": class_name,
         "points": 0,
-        "loot": []
+        "loot": {}
     }
 
     player_data["ppes"].append(new_ppe)
