@@ -103,6 +103,8 @@ class PPEBot(commands.Bot):
 
         print("Guild commands synced!")
 
+        EXCEPTIONS = {"of", "the"}
+
         loot_points = load_loot_points()  # load once at startup
 
         for internal_name in loot_points.keys():
@@ -111,10 +113,16 @@ class PPEBot(commands.Bot):
             if "(shiny)" in internal_name:
                 continue
 
-            # pretty-formatting (capitalize each word)
-            pretty = " ".join(word.capitalize() for word in internal_name.split(" "))
+            # normalize capitalization
+            words = internal_name.split(" ")
+            pretty = " ".join(
+                word.lower() if word.lower() in EXCEPTIONS
+                else word.capitalize()
+                for word in words
+            )
 
             LOOT.append(pretty)
+
 
 intents = discord.Intents.default()
 intents.message_content = True
