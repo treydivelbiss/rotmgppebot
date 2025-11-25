@@ -190,14 +190,19 @@ def find_items_in_image(
             # Empty slot, skipping
             continue
         elif best_item != None and best_val >= threshold:
+            # if '(shiny)' is in best_item, set shiny=True
+            is_shiny = '(shiny)' in best_item
+            if is_shiny:
+                best_item = best_item.replace(' (shiny)', '')
+
             detections.append({
                 "slot": i + 1,
                 "item": best_item,
                 "confidence": float(best_val),
                 "divine": False,
-                "shiny": False,
+                "shiny": is_shiny,
             })
-            print(f"[DEBUG] Slot {i+1}: {best_item:30s} | Confidence: {best_val:.3f} | "
+            print(f"[DEBUG] Slot {i+1}: {best_item:30s}, Shiny: {is_shiny} | Confidence: {best_val:.3f} | "
                   f"(Structure: {best_structural:.3f}, Color: {best_color:.3f})")
 
             # Draw rectangle on annotated image
