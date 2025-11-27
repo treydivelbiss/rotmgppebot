@@ -376,26 +376,22 @@ async def submitloot(
 
     found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
     if found_items:
-        player_name = str(interaction.user.display_name)
-        # loot_results, total = await calculate_loot_points(interaction.guild.id, player_name, found_items)
 
-        
-        # add items to active ppe
         for detected_loot in found_items:
             # get item name without tags
             if '(shiny)' in detected_loot["item"]:
                 item_name = detected_loot["item"].split(" (")[0].strip()
             else:
                 item_name = detected_loot["item"].strip()
-            await add_loot_to_player(interaction=interaction, item_name=item_name, divine=detected_loot["divine"], shiny=detected_loot["shiny"])
+            try:
+                final_key, points = await add_loot_to_player(interaction=interaction, item_name=item_name, divine=detected_loot["divine"], shiny=detected_loot["shiny"])
+            except (ValueError, KeyError) as e:
+                return await interaction.response.send_message(str(e), ephemeral=True)
 
-        # msg_lines = [f"`{player_name}'s` Loot Summary:"]
-        # for loot in loot_results:
-        #     dup_tag = " (Duplicate ⚠️)" if loot["duplicate"] else ""
-        #     msg_lines.append(f"- {loot['item']}: +`{loot['points']}` points{dup_tag}")
-        # msg_lines.append(f"Total Points: `{total:.1f}`")
-
-        # await interaction.followup.send("\n".join(msg_lines))
+            await interaction.response.send_message(
+                f"✅ Added **{final_key}** to your active PPE for {points} points.",
+                ephemeral=False
+            )
     
     
 @bot.tree.command(name="addloot", description="Add an item to your active PPE's loot.", guilds=guilds)
