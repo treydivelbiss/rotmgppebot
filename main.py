@@ -919,15 +919,17 @@ async def ppehelp(interaction: discord.Interaction):
         "myppe": "View your current PPE stats or progress.",
         "newppe": "Start a new PPE run and track your progress.",
         "setactiveppe": "Set which of your PPE characters is currently active.",
-        "addpoints": "Add points to your active PPE manually.",
+        "addloot": "Add loot to your active PPE manually.",
+        "removeloot": "Remove loot from your active PPE manually.",
+        "listloot": "Show all loot recorded for your active PPE.",
         "submitloot": "Submit a loot screenshot for point tracking automatically.",
     }
 
     # --- Admin Commands ---
     admin_cmds = {
-        "listppechannels": "List all channels marked as PPE channels.",
-        "setppechannel": "Mark this channel as a PPE channel.",
-        "unsetppechannel": "Remove this channel from PPE channels.",
+        # "listppechannels": "List all channels marked as PPE channels.",
+        # "setppechannel": "Mark this channel as a PPE channel.",
+        # "unsetppechannel": "Remove this channel from PPE channels.",
         "addplayer": "Add a member to the PPE contest.",
         "removeplayer": "Remove a member from the PPE contest.",
         "listplayers": "List all current participants in the PPE contest.",
@@ -945,8 +947,6 @@ async def ppehelp(interaction: discord.Interaction):
         title="🧙 PPE Bot Help",
         description=(
             "Welcome to the PPE competition bot!\n\n"
-            "🟢 `Player Commands` — for everyone with the `PPE Player` role.\n"
-            "🔴 `Admin Commands` — for members with the `PPE Admin` role or 'Manage Roles' permission."
         ),
         color=discord.Color.blurple()
     )
@@ -969,7 +969,7 @@ async def ppehelp(interaction: discord.Interaction):
 
     # --- Footer ---
     embed.set_footer(text="PPE Bot by LogicVoid — use /ppehelp anytime for command info")
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 ###############
 #### ROLES ####
