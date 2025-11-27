@@ -379,10 +379,14 @@ async def submitloot(
         player_name = str(interaction.user.display_name)
         # loot_results, total = await calculate_loot_points(interaction.guild.id, player_name, found_items)
 
-        # get item name without tags
-        item_name = detected_loot["item"].split(" (")[0]
+        
         # add items to active ppe
         for detected_loot in found_items:
+            # get item name without tags
+            if '(shiny)' in detected_loot["item"]:
+                item_name = detected_loot["item"].split(" (")[0].strip()
+            else:
+                item_name = detected_loot["item"].strip()
             await addloot(interaction=interaction, item_name=item_name, divine=detected_loot["divine"], shiny=detected_loot["shiny"])
 
         # msg_lines = [f"`{player_name}'s` Loot Summary:"]
