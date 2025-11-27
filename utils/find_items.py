@@ -100,7 +100,7 @@ def find_items_in_image(
             bgr = tpl_rgba
             alpha = np.ones(bgr.shape[:2], dtype=np.uint8) * 255
 
-        templates.append((file.replace(".png", "").replace("_", " ").title(), bgr, alpha))
+        templates.append((file.replace(".png", "").replace("_", " "), bgr, alpha))
 
     os.makedirs(debug_output, exist_ok=True)
     annotated = loot_gui.copy()
