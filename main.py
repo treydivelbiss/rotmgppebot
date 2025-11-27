@@ -376,6 +376,7 @@ async def submitloot(
 
     found_items = find_items_in_image(file_path, templates_folder=f"./dungeons/{dungeon}")
     if found_items:
+        message = "✅ **Detected the following items in your screenshot:**\n"
 
         for detected_loot in found_items:
             # get item name without tags
@@ -385,13 +386,16 @@ async def submitloot(
                 item_name = detected_loot["item"].strip()
             try:
                 final_key, points = await add_loot_to_player(interaction=interaction, item_name=item_name, divine=detected_loot["divine"], shiny=detected_loot["shiny"])
+                message += f"• **{final_key}** (+{points} points)\n"
             except (ValueError, KeyError) as e:
                 return await interaction.response.send_message(str(e), ephemeral=True)
 
-            await interaction.response.send_message(
-                f"✅ Added **{final_key}** to your active PPE for {points} points.",
-                ephemeral=False
-            )
+        await interaction.response.send_message(message, ephemeral=False)
+
+            # await interaction.response.send_message(
+            #     f"✅ Added **{final_key}** to your active PPE for {points} points.",
+            #     ephemeral=False
+            # )
     
     
 @bot.tree.command(name="addloot", description="Add an item to your active PPE's loot.", guilds=guilds)
@@ -399,6 +403,7 @@ async def submitloot(
 @app_commands.autocomplete(item_name=item_name_autocomplete)
 @require_ppe_roles(player_required=True)
 async def addloot(
+
         interaction: discord.Interaction,
         item_name: str,
         divine: bool = False,
