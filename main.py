@@ -387,7 +387,7 @@ async def submitloot(
                 item_name = detected_loot["item"].split(" (")[0].strip()
             else:
                 item_name = detected_loot["item"].strip()
-            await addloot(interaction=interaction, item_name=item_name, divine=detected_loot["divine"], shiny=detected_loot["shiny"])
+            await add_loot_to_player(interaction=interaction, item_name=item_name, divine=detected_loot["divine"], shiny=detected_loot["shiny"])
 
         # msg_lines = [f"`{player_name}'s` Loot Summary:"]
         # for loot in loot_results:
@@ -408,90 +408,94 @@ async def addloot(
         divine: bool = False,
         shiny: bool = False
     ):
-        if item_name not in LOOT:
-            await interaction.response.send_message(
-                f"❌ `{item_name}` is not a recognized item name.\n"
-                f"Use the autocomplete suggestions to select a valid item.",
-                ephemeral=True
-            )
-            return
-        guild = interaction.guild
-        user = interaction.user
-
-        # GUARD 1: Must be used in a guild
-        if guild is None:
-            await interaction.response.send_message(
-                "❌ This command can only be used in a server.",
-                ephemeral=True
-            )
-            return
-
-        guild_id = guild.id
-
-        # item_name = item_name.strip().lower()
-
         try:
-            points = await calc_points(guild_id, user.display_name, item_name, divine, shiny)
-        except ValueError as e:
+            final_key, points = await add_loot_to_player(interaction, item_name, divine, shiny)
+        except (ValueError, KeyError) as e:
             return await interaction.response.send_message(str(e), ephemeral=True)
-
-
-        records = await load_player_records(guild_id)
-        key = ensure_player_exists(records, user.display_name.lower())
-
-
-        # GUARD 2: Player must exist in PPE records
-        if key not in records:
-            await interaction.response.send_message(
-                "❌ You are not registered in the PPE system.",
-                ephemeral=True
-            )
-            return
-
-        player_data = records[key]
-
-        # GUARD 3: Player must have an active PPE
-        active_ppe = get_active_ppe(player_data)
-        if not active_ppe:
-            await interaction.response.send_message(
-                "❌ You do not have an active PPE.",
-                ephemeral=True
-            )
-            return
-
-        # Prepare loot structures
-        loot_dict = active_ppe.setdefault("loot", {})
-
-        # Normalize item name
-        base_name = item_name.strip()
-
-        # Generate variant suffix
-        suffix_parts = []
-        if divine:
-            suffix_parts.append("(divine)")
-        if shiny:
-            suffix_parts.append("(shiny)")
-
-        if suffix_parts:
-            final_key = f"{base_name} " + " ".join(suffix_parts)
-        else:
-            final_key = base_name
-
-        # Increment loot count
-        loot_dict[final_key] = loot_dict.get(final_key, 0) + 1
-        await save_player_records(guild_id, records)
-
-
-        try:
-            await addpoints(interaction, points)
-        except (ValueError, KeyError, LookupError) as e:
-            return await interaction.response.send_message(str(e), ephemeral=True)
-        
 
         await interaction.response.send_message(
             f"✅ Added **{final_key}** to your active PPE for {points} points.",
             ephemeral=False
         )
+
+async def add_loot_to_player(
+        interaction: discord.Interaction,
+        item_name: str,
+        divine: bool = False,
+        shiny: bool = False
+):
+    if item_name not in LOOT:
+        raise NameError(
+            f"❌ `{item_name}` is not a recognized item name.\n"
+            f"Use the autocomplete suggestions to select a valid item."
+        )
+    guild = interaction.guild
+    user = interaction.user
+
+    # GUARD 1: Must be used in a guild
+    if guild is None:
+        raise KeyError(
+            "❌ This command can only be used in a server."
+        )
+
+    guild_id = guild.id
+
+    # item_name = item_name.strip().lower()
+
+    try:
+        points = await calc_points(guild_id, user.display_name, item_name, divine, shiny)
+    except ValueError as e:
+        raise e
+
+
+    records = await load_player_records(guild_id)
+    key = ensure_player_exists(records, user.display_name.lower())
+
+
+    # GUARD 2: Player must exist in PPE records
+    if key not in records:
+        raise KeyError(
+            "❌ You are not registered in the PPE system."
+        )
+
+    player_data = records[key]
+
+    # GUARD 3: Player must have an active PPE
+    active_ppe = get_active_ppe(player_data)
+    if not active_ppe:
+        raise KeyError(
+            "❌ You do not have an active PPE."
+        )
+
+    # Prepare loot structures
+    loot_dict = active_ppe.setdefault("loot", {})
+
+    # Normalize item name
+    base_name = item_name.strip()
+
+    # Generate variant suffix
+    suffix_parts = []
+    if divine:
+        suffix_parts.append("(divine)")
+    if shiny:
+        suffix_parts.append("(shiny)")
+
+    if suffix_parts:
+        final_key = f"{base_name} " + " ".join(suffix_parts)
+    else:
+        final_key = base_name
+
+    # Increment loot count
+    loot_dict[final_key] = loot_dict.get(final_key, 0) + 1
+    await save_player_records(guild_id, records)
+
+
+    try:
+        await addpoints(interaction, points)
+    except (ValueError, KeyError, LookupError) as e:
+        raise e
+    return final_key, points
+    
 
 @bot.tree.command(name="removeloot", description="Remove an item from your active PPE's loot.", guilds=guilds)
 @app_commands.describe(item_name="Name of the item to remove", divine="Is the item divine?", shiny="Is the item shiny?")
