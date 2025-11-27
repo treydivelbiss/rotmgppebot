@@ -388,9 +388,9 @@ async def submitloot(
                 final_key, points = await add_loot_to_player(interaction=interaction, item_name=item_name, divine=detected_loot["divine"], shiny=detected_loot["shiny"])
                 message += f"• **{final_key}** (+{points} points)\n"
             except (ValueError, KeyError) as e:
-                return await interaction.response.send_message(str(e), ephemeral=True)
+                return await interaction.followup.send(str(e), ephemeral=True)
 
-        await interaction.response.send_message(message, ephemeral=False)
+        await interaction.followup.send(message, ephemeral=False)
 
             # await interaction.response.send_message(
             #     f"✅ Added **{final_key}** to your active PPE for {points} points.",
