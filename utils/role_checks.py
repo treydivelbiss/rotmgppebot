@@ -1,5 +1,5 @@
 import discord
-from discord import app_commands
+from discord import Member, User, app_commands
 
 def require_ppe_roles(admin_required: bool = False, player_required: bool = False):
     async def predicate(inter: discord.Interaction):
@@ -14,9 +14,11 @@ def require_ppe_roles(admin_required: bool = False, player_required: bool = Fals
                     await inter.followup.send(message, ephemeral=True)
             except Exception:
                 pass  # Never allow a response failure to break the check
-
+        if not isinstance(inter.user, Member):
+            await safe_respond("❌ This command can only be used by a server member.")
+            return False
         guild = inter.guild
-        user = inter.user
+        member = inter.user
 
         if guild is None:
             await safe_respond("❌ This command can only be used in a server.")
@@ -31,12 +33,13 @@ def require_ppe_roles(admin_required: bool = False, player_required: bool = Fals
                 "Please ensure **PPE Admin** and **PPE Player** exist."
             )
             return False
+        member.roles
 
-        if admin_required and admin_role not in user.roles:
+        if admin_required and admin_role not in member.roles:
             await safe_respond("🚫 You need the **PPE Admin** role to use this command.")
             return False
 
-        if player_required and player_role not in user.roles:
+        if player_required and player_role not in member.roles:
             await safe_respond("🚫 You need the **PPE Player** role to use this command.")
             return False
 
