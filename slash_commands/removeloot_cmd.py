@@ -14,15 +14,15 @@ async def command(
         divine: bool = False,
         shiny: bool = False
     ):
-    if item_name not in LOOT:
-        return await interaction.response.send_message(
-            f"❌ `{item_name}` is not a recognized item name.\n"
-            f"Use the autocomplete suggestions to select a valid item.",
-            ephemeral=True
-        )
+    # if item_name not in LOOT:
+    #     return await interaction.response.send_message(
+    #         f"❌ `{item_name}` is not a recognized item name.\n"
+    #         f"Use the autocomplete suggestions to select a valid item.",
+    #         ephemeral=True
+    #     )
     
     try:
-        points = await calc_points(interaction, item_name, divine, shiny)
+        points = calc_points(item_name, divine, shiny)
         final_key, points_removed, active_ppe = await player_manager.remove_loot_and_points(
             interaction, item_name, divine, shiny, points
         )

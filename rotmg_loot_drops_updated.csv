@@ -1,13 +1,4 @@
 Loot Type,Item Name,Points
-Fame,5k Fame,5
-Maxed Stat,Maxed HP,5
-Maxed Stat,Maxed MP,5
-Maxed Stat,Maxed Attack,5
-Maxed Stat,Maxed Defense,5
-Maxed Stat,Maxed Speed,5
-Maxed Stat,Maxed Dexterity,5
-Maxed Stat,Maxed Wisdom,5
-Maxed Stat,Maxed Vitality,5
 Tier 13 Armor,Dominion Armor,0.0
 Tier 14 Weapon,Dagger of Dire Hatred,1.0
 Tier 14 Weapon,Bow of Deep Enchantment,1.0
@@ -717,6 +708,8 @@ Event White,Trap of the Vile Spirit,10
 Event White,Mighty Stein,10
 Event White,Deadly Keg,10
 Event White,Greaterhosen,10
+Event White,Crystal Sword,10
+Event White,Crystal Sword (shiny),20
 Biome White,Adventurer’s Scarf,10
 Biome White,Torrential Staff,10
 Biome White,Celestial Recurve,10
