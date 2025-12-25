@@ -683,7 +683,6 @@ Event White,Deadly Keg,10
 Event White,Greaterhosen,10
 Event White,Crystal Sword,10
 Event White,Crystal Sword (shiny),20
-Event White,Frozen Wand,4.5
 Event White,Candy Katana,5
 Event White,Sleigh Bell Staff,5
 Event White,Garland Bow,5
@@ -756,7 +755,7 @@ White or ST,Wand of the Fallen (shiny),12
 White or ST,Crystal Shield (shiny),15
 White or ST,Tome of the Mushroom Tribes (shiny),15
 White or ST,Resurrected Warrior's Armor (shiny),9
-White or ST,Candy Ring (shiny),7
+White or ST,Candy Ring (shiny),0
 White or ST,S.T.A.F.F. (shiny),13
 Event White,Deadly Keg (shiny),20
 White or ST,Prism of Dire Instability (shiny),11
@@ -886,3 +885,23 @@ White or ST,S.H.E.A.T.H. (shiny),13
 White or ST,Tome of Pain (shiny),11
 White or ST,Woodland Robe (shiny),6
 White or ST,Overclocking Amulet (shiny),16
+White or ST,Mystic Syndicate Attire,7
+White or ST,Heavy Syndicate Attire,7
+White or ST,Light Syndicate Attire,7
+White or ST,Sunken Fire Opal Ring,7
+White or ST,Faded Heart Scarab,7
+White or ST,Fractured Hannya,7
+White or ST,Storied Blades,7
+White or ST,Forbidden Artifact,7
+White or ST,Sheath of Thunderous Rites,7
+White or ST,Storm Caller,7
+White or ST,Corsair's Crown Jewel,7
+White or ST,Rusted Barrel,7
+White or ST,Royal Sekhem,7
+White or ST,Frangible Longbow,7
+White or ST,Gilded Chain Scythe,7
+White or ST,Ritual Khopesh,7
+White or ST,Pirate's Sidearms,7
+White or ST,Obsidian Macuahuitl,7
+Event White,Frozen Wand,10
+Event White,Enchanted Ice Blade,10

@@ -1,15 +1,15 @@
-from slash_commands import addbonus_cmd, addbonusfor_cmd, addloot_cmd, addlootfor_cmd, addpenalties_cmd, addpenaltiesfor_cmd, addplayer_cmd, addpointsfor_cmd, deleteallppes_cmd, giveppeadminrole_cmd, inspectloot_cmd, leaderboard_cmd, listplayers_cmd, listroles_cmd, myloot_cmd, myppes_cmd, newppe_cmd, ppehelp_cmd, refreshallpoints_cmd, refreshpointsfor_cmd, removebonus_cmd, removebonusfrom_cmd, removeloot_cmd, removelootfrom_cmd, removeplayer_cmd, removeppeadminrole_cmd, setactiveppe_cmd, submitloot_cmd, deleteppe_cmd, listadmins_cmd
+from slash_commands import addbonus_cmd, addbonusfor_cmd, addloot_cmd, addlootfor_cmd, addpenalties_cmd, addpenaltiesfor_cmd, addplayer_cmd, addpointsfor_cmd, deleteallppes_cmd, giveppeadminrole_cmd, inspectloot_cmd, leaderboard_cmd, listplayers_cmd, listroles_cmd, myloot_cmd, myppes_cmd, newppe_cmd, ppehelp_cmd, refreshallpoints_cmd, refreshpointsfor_cmd, removebonus_cmd, removebonusfrom_cmd, removeloot_cmd, removelootfrom_cmd, removeplayer_cmd, removeppeadminrole_cmd, setactiveppe_cmd, submitloot_cmd, deleteppe_cmd, listadmins_cmd, shareloot_cmd
 import discord
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 import aiosqlite
 import os
-from utils.calc_points import load_loot_points
 from utils.role_checks import require_ppe_roles
-from utils.loot_data import set_loot_data
+from utils.loot_data import init_loot_data
+from create_loot_table import create_loot_background_and_mapping
 
-from utils.autocomplete import class_autocomplete, dungeon_autocomplete, item_name_autocomplete, bonus_autocomplete, user_bonus_autocomplete, target_user_bonus_autocomplete, target_user_ppe_id_autocomplete
+from utils.autocomplete import class_autocomplete, item_name_autocomplete, bonus_autocomplete, user_bonus_autocomplete, target_user_bonus_autocomplete, target_user_ppe_id_autocomplete
 
 SERVER1_ID = 879497062117412924 # Last Oasis
 SERVER2_ID = 1435436110829326459 # Test Server
@@ -22,34 +22,21 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 class PPEBot(commands.Bot):
     async def setup_hook(self):
 
-        EXCEPTIONS = {"of", "the", "in", "and", "for", "to", "a", "an"}
+        # Initialize global loot data for autocomplete
+        init_loot_data()
         
-        # Create temporary list for loot items
-        loot_items = []
-
-        loot_points = load_loot_points()  # load once at startup
-
-        for internal_name in loot_points.keys():
-
-            # exclude shiny variants
-            if "(shiny)" in internal_name:
-                continue
-
-            # normalize capitalization
-            words = internal_name.split(" ")
-            pretty = " ".join(
-                # word.capitalize() if i == 0 else (
-                    word.lower() if word.lower() in EXCEPTIONS and i != 0
-                    else word
-                # )
-                for i, word in enumerate(words)
-            )
-
-            loot_items.append(pretty)
-        
-        # Set the loot data in the shared module
-        set_loot_data(loot_items)
-        print(f"Loaded {len(loot_items)} loot items for autocomplete")
+        # Generate background image and sprite mapping for shareloot system
+        try:
+            print("Generating loot background and sprite mapping...")
+            result = create_loot_background_and_mapping()
+            if result:
+                background_path, csv_path = result
+            else:
+                background_path, csv_path = None, None
+                print("[WARN] create_loot_background_and_mapping() returned None")
+            print(f"✅ Background: {background_path}, Mapping: {csv_path}")
+        except Exception as e:
+            print(f"[ERROR] Failed to generate loot background: {e}")
         
         # Print to confirm commands are loaded BEFORE syncing
         print("Loaded commands:", [cmd.name for cmd in self.tree.get_commands()])
@@ -69,7 +56,6 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True  # Enable members intent
 
-# bot = commands.Bot(command_prefix="!", intents=intents)
 bot = PPEBot(command_prefix="!", intents=intents)
 
 @bot.event
@@ -348,6 +334,11 @@ async def listplayers(interaction: discord.Interaction):
 @require_ppe_roles(player_required=True)
 async def myloot(interaction: discord.Interaction):
     await myloot_cmd.command(interaction)
+
+@bot.tree.command(name="shareloot", description="Generate a visual loot table showing your active PPE's items.", guilds=guilds)
+@require_ppe_roles(player_required=True)
+async def shareloot(interaction: discord.Interaction):
+    await shareloot_cmd.command(interaction)
 
 @bot.tree.command(name="inspectloot", description="Inspect the loot of another player's specific PPE. Admin only.", guilds=guilds)
 @app_commands.describe(user="The player to inspect", id="The PPE ID to inspect")
