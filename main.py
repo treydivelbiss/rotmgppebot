@@ -1,17 +1,55 @@
-from slash_commands import addbonus_cmd, addbonusfor_cmd, addloot_cmd, addlootfor_cmd, addpenalties_cmd, addpenaltiesfor_cmd, addplayer_cmd, addpointsfor_cmd, deleteallppes_cmd, giveppeadminrole_cmd, inspectloot_cmd, leaderboard_cmd, listplayers_cmd, listroles_cmd, myloot_cmd, myquests_cmd, myppes_cmd, newppe_cmd, ppehelp_cmd, refreshallpoints_cmd, refreshpointsfor_cmd, removebonus_cmd, removebonusfrom_cmd, removeloot_cmd, removelootfrom_cmd, removeplayer_cmd, removeppeadminrole_cmd, setactiveppe_cmd, submitloot_cmd, deleteppe_cmd, listadmins_cmd, shareloot_cmd, shareseasonloot_cmd, addseasonloot_cmd, addseasonlootfor_cmd, removeseasonloot_cmd, removeseasonlootfor_cmd, showseasonloot_cmd, seasonleaderboard_cmd, questleaderboard_cmd, resetseason_cmd, migrateapostrophes_cmd, addteam_cmd, addplayer_team_cmd, leaveteam_cmd, teamleaderboard_cmd, myteam_cmd, updateteam_cmd, deleteteam_cmd, characterleaderboard_cmd, listcharactersfor_cmd, viewquestsfor_cmd, resetquestfor_cmd, resetquests_cmd, managequests_cmd, realmshark_cmd
+from slash_commands import (
+    addbonus_cmd,
+    addbonusfor_cmd,
+    addloot_cmd,
+    addlootfor_cmd,
+    addplayer_cmd,
+    addpointsfor_cmd,
+    addseasonloot_cmd,
+    addseasonlootfor_cmd,
+    addtoteam_cmd,
+    leaderboard_cmd,
+    listadmins_cmd,
+    listplayers_cmd,
+    listroles_cmd,
+    manageplayer_cmd,
+    managequests_cmd,
+    manageseason_cmd,
+    managesniffer_cmd,
+    manageteams_cmd,
+    myinfo_cmd,
+    myloot_cmd,
+    myquests_cmd,
+    mysniffer_cmd,
+    myteam_cmd,
+    newppe_cmd,
+    ppehelp_cmd,
+    refreshallpoints_cmd,
+    refreshpointsfor_cmd,
+    removebonus_cmd,
+    removebonusfrom_cmd,
+    removefromteam_cmd,
+    removeloot_cmd,
+    removelootfrom_cmd,
+    removeseasonloot_cmd,
+    removeseasonlootfrom_cmd,
+    setactiveppe_cmd,
+    submitloot_cmd,
+)
 import discord
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
-import aiosqlite
 import os
 from utils.role_checks import require_ppe_roles
 from utils.loot_data import init_loot_data
+from utils.settings.channel_settings import get_item_suggestions_enabled
+from utils.item_suggestion import handle_item_suggestion
 from create_loot_table import create_loot_background_and_mapping
 from utils.realmshark_ingest_server import start_realmshark_ingest_server
 from utils.realmshark_notifier import build_realmshark_notifier
 
-from utils.autocomplete import class_autocomplete, item_name_autocomplete, bonus_autocomplete, user_bonus_autocomplete, target_user_bonus_autocomplete, target_user_ppe_id_autocomplete, team_name_autocomplete
+from utils.autocomplete import class_autocomplete, item_name_autocomplete, bonus_autocomplete, user_bonus_autocomplete, target_user_bonus_autocomplete, team_name_autocomplete
 
 SERVER1_ID = 879497062117412924 # Last Oasis
 SERVER2_ID = 1435436110829326459 # Test Server
@@ -131,20 +169,41 @@ async def on_message(message: discord.Message):
         return
 
     await bot.process_commands(message)
-
-
-@bot.tree.error
-async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    # Role/permission checks already provide user-facing feedback in the predicate.
-    if isinstance(error, app_commands.CheckFailure):
-        if not interaction.response.is_done():
-            await interaction.response.send_message(
-                "🚫 You do not have permission to use this command.",
-                ephemeral=True,
-            )
+    @bot.tree.error
+    async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+        # Role/permission checks already provide user-facing feedback in the predicate.
+        if isinstance(error, app_commands.CheckFailure):
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "🚫 You do not have permission to use this command.",
+                    ephemeral=True,
+                )
+    print("Message received")
+    # --- PNG attachment listener ---
+    # Find the first image attachment (png, jpg, jpeg, webp), if any
+    attachment = next(
+        (a for a in message.attachments if a.filename.lower().endswith((".png", ".jpg", ".jpeg", ".webp"))),
+        None,
+    )
+    if attachment is None:
         return
 
-    print(f"[ERROR] Slash command failed: {type(error).__name__}: {error}")
+    channel_id = message.channel.id
+    print(
+        f"[listener] received message with attachment "
+        f"guild={guild_id} channel={channel_id} file={attachment.filename}"
+    )
+
+    # Check whether item suggestions are enabled for this channel
+    enabled = await get_item_suggestions_enabled(str(guild_id), str(channel_id))
+    print(
+        f"[listener] item_suggestions_enabled={enabled} "
+        f"guild={guild_id} channel={channel_id}"
+    )
+    if not enabled:
+        return
+
+    await handle_item_suggestion(message, attachment)
 
 @bot.tree.command(name="setuproles", description="Check and create required PPE roles in this server.", guilds=guilds)
 @commands.has_permissions(manage_roles=True)
@@ -157,12 +216,12 @@ async def setup_roles(interaction: discord.Interaction):
 ### COMMANDS BELOW ###
 ######################
 
-@bot.tree.command(name="newppe", description="Create a new PPE (max 10) and make it your active one.", guilds=guilds)
+@bot.tree.command(name="newppe", description="Create a new PPE and make it your active one.", guilds=guilds)
 @app_commands.describe(class_name="Choose your class")
 @app_commands.describe(pet_level="Level of your max pet ability -1st one (0-100)")
 @app_commands.describe(num_exalts="Number of exalts (0-40)")
 @app_commands.describe(percent_loot="Percent loot boost from exalts (0-25%)")
-@app_commands.describe(incombat_reduction="In-combat damage reduction seconds (0, .2, .4, .6, .8, 1)")
+@app_commands.describe(incombat_reduction="In-combat damage reduction seconds (0, 0.2, 0.4, 0.6, 0.8, 1.0)")
 @app_commands.autocomplete(class_name=class_autocomplete)
 @require_ppe_roles(player_required=True)
 async def newppe(interaction: discord.Interaction, class_name: str, pet_level: int, num_exalts: int, percent_loot: float, incombat_reduction: float):
@@ -215,20 +274,14 @@ async def addlootfor(
 @app_commands.describe(bonus_name="Name of the bonus to add")
 @app_commands.autocomplete(bonus_name=bonus_autocomplete)
 @require_ppe_roles(player_required=True)
-async def addbonus(
-        interaction: discord.Interaction,
-        bonus_name: str
-    ):
+async def addbonus(interaction: discord.Interaction, bonus_name: str):
     await addbonus_cmd.command(interaction, bonus_name)
 
 @bot.tree.command(name="removebonus", description="Remove a bonus from your active PPE.", guilds=guilds)
 @app_commands.describe(bonus_name="Name of the bonus to remove")
 @app_commands.autocomplete(bonus_name=user_bonus_autocomplete)
 @require_ppe_roles(player_required=True)
-async def removebonus(
-        interaction: discord.Interaction,
-        bonus_name: str
-    ):
+async def removebonus(interaction: discord.Interaction, bonus_name: str):
     await removebonus_cmd.command(interaction, bonus_name)
 
 @bot.tree.command(name="addbonusfor", description="Add a bonus to another player's specific PPE. Admin only.", guilds=guilds)
@@ -255,43 +308,7 @@ async def removebonusfrom(
     ):
     await removebonusfrom_cmd.command(interaction, user, id, bonus_name)
 
-@bot.tree.command(name="addpenalties", description="Add penalty bonuses to your active PPE.", guilds=guilds)
-@app_commands.describe(
-    pet_level="Pet level (0-100)", 
-    num_exalts="Number of exalts (0-40)", 
-    percent_loot="Loot boost percentage (0-25)", 
-    incombat_reduction="In-combat damage reduction (0, 0.2, 0.4, 0.6, 0.8, 1.0)"
-)
-@require_ppe_roles(player_required=True)
-async def addpenalties(
-        interaction: discord.Interaction,
-        pet_level: int,
-        num_exalts: int,
-        percent_loot: float,
-        incombat_reduction: float
-    ):
-    await addpenalties_cmd.command(interaction, pet_level, num_exalts, percent_loot, incombat_reduction)
 
-@bot.tree.command(name="addpenaltiesfor", description="Add penalty bonuses to another player's specific PPE. Admin only.", guilds=guilds)
-@app_commands.describe(
-    user="The player whose PPE to add penalties to", 
-    id="The PPE ID to target", 
-    pet_level="Pet level (0-100)", 
-    num_exalts="Number of exalts (0-40)", 
-    percent_loot="Loot boost percentage (0-25)", 
-    incombat_reduction="In-combat damage reduction (0, 0.2, 0.4, 0.6, 0.8, 1.0)"
-)
-@require_ppe_roles(admin_required=True)
-async def addpenaltiesfor(
-        interaction: discord.Interaction,
-        user: discord.Member,
-        id: int,
-        pet_level: int,
-        num_exalts: int,
-        percent_loot: float,
-        incombat_reduction: float
-    ):
-    await addpenaltiesfor_cmd.command(interaction, user, id, pet_level, num_exalts, percent_loot, incombat_reduction)
 
 @bot.tree.command(name="removeloot", description="Remove an item from your active PPE's loot.", guilds=guilds)
 @app_commands.describe(item_name="Name of the item to remove", divine="Is the item divine?", shiny="Is the item shiny?")
@@ -342,76 +359,38 @@ async def refreshallpoints(interaction: discord.Interaction):
 async def listplayers(interaction: discord.Interaction):
     await listplayers_cmd.command(interaction)
 
-@bot.tree.command(name="listcharactersfor", description="Show all characters and their IDs for a specific player. Admin only.", guilds=guilds)
-@app_commands.describe(member="The player whose characters to list")
-@require_ppe_roles(admin_required=True)
-async def listcharactersfor(interaction: discord.Interaction, member: discord.Member):
-    await listcharactersfor_cmd.command(interaction, member)
 
-@bot.tree.command(name="myloot", description="Show all loot for your active PPE.", guilds=guilds)
-@require_ppe_roles(player_required=True)
-async def myloot(interaction: discord.Interaction):
-    await myloot_cmd.command(interaction)
 
 @bot.tree.command(name="myquests", description="Show your current and completed account quests.", guilds=guilds)
 @require_ppe_roles(player_required=True)
 async def myquests(interaction: discord.Interaction):
     await myquests_cmd.command(interaction)
 
-@bot.tree.command(name="shareloot", description="Generate a visual loot table showing your active PPE's items.", guilds=guilds)
-@app_commands.describe(include_skins="Include skin items in the loot background", include_limited="Include limited items in the loot background")
+@bot.tree.command(name="myinfo", description="Open your PPE info dashboard and quick actions.", guilds=guilds)
 @require_ppe_roles(player_required=True)
-async def shareloot(interaction: discord.Interaction, include_skins: bool = False, include_limited: bool = False):
-    await shareloot_cmd.command(interaction, include_skins, include_limited)
+async def myinfo(interaction: discord.Interaction):
+    await myinfo_cmd.command(interaction)
 
-@bot.tree.command(name="inspectloot", description="Inspect the loot of another player's specific PPE. Admin only.", guilds=guilds)
-@app_commands.describe(user="The player to inspect", id="The PPE ID to inspect")
-@app_commands.autocomplete(id=target_user_ppe_id_autocomplete)
+@bot.tree.command(name="manageplayer", description="Open admin menu to manage a player's PPE data. Admin only.", guilds=guilds)
+@app_commands.describe(member="The player to manage (if in server)", user_id="The discord ID of the player to manage (if not in server)")
 @require_ppe_roles(admin_required=True)
-async def inspectloot(interaction: discord.Interaction, user: discord.Member, id: int):
-    await inspectloot_cmd.command(interaction, user, id)
+async def manageplayer(interaction: discord.Interaction, member: discord.Member | None = None, user_id: str | None = None):
+    await manageplayer_cmd.command(interaction, member=member, user_id=user_id)
 
 @bot.tree.command(name="addplayer", description="Add a player to the PPE contest.", guilds=guilds)
 @require_ppe_roles(admin_required=True)
 async def addplayer(interaction: discord.Interaction, member: discord.Member):
     await addplayer_cmd.command(interaction, member)
 
-@bot.tree.command(name="removeplayer", description="Remove a player and all their PPE data from the contest.", guilds=guilds)
-@app_commands.describe(member="Server member to remove")
-@app_commands.describe(user_id="Discord ID to remove (for users no longer in the server)")
-@require_ppe_roles(admin_required=True)
-async def removeplayer(
-    interaction: discord.Interaction,
-    member: discord.Member | None = None,
-    user_id: str | None = None
-):
-    await removeplayer_cmd.command(interaction, member, user_id)
 
-@bot.tree.command(name="myppes", description="Show all your PPEs and which one is active.", guilds=guilds)
-# @commands.has_role("PPE Player")
-@require_ppe_roles(player_required=True)
-async def myppes(interaction: discord.Interaction):
-    await myppes_cmd.command(interaction)
 
-@bot.tree.command(name="deleteallppes", description="Delete all your PPEs.", guilds=guilds)
-@require_ppe_roles(admin_required=True)
-async def delete_all_ppes(interaction: discord.Interaction, member: discord.Member):
-    await deleteallppes_cmd.command(interaction, member)
 
-@bot.tree.command(name="deleteppe", description="Delete a specific PPE for a member.", guilds=guilds)
-@require_ppe_roles(admin_required=True)
-async def delete_ppe(interaction: discord.Interaction, member: discord.Member, ppe_id: int):
-    await deleteppe_cmd.command(interaction, member, ppe_id)
 
-@bot.tree.command(name="leaderboard", description="Show the best PPE from each player.", guilds=guilds)
+
+
+@bot.tree.command(name="leaderboard", description="Open the leaderboard menu.", guilds=guilds)
 async def leaderboard(interaction: discord.Interaction):
     await leaderboard_cmd.command(interaction)
-
-@bot.tree.command(name="characterleaderboard", description="Show the highest point characters of a specific class.", guilds=guilds)
-@app_commands.describe(class_name="Choose the class to filter by")
-@app_commands.autocomplete(class_name=class_autocomplete)
-async def characterleaderboard(interaction: discord.Interaction, class_name: str):
-    await characterleaderboard_cmd.command(interaction, class_name)
 
 @bot.tree.command(name="ppehelp", description="Show available PPE commands for players and admins.", guilds=guilds)
 async def ppehelp(interaction: discord.Interaction):
@@ -455,193 +434,51 @@ async def removeseasonloot(
     ):
     await removeseasonloot_cmd.command(interaction, item_name, shiny)
 
-@bot.tree.command(name="removeseasonlootfor", description="Remove a unique item from another player's season loot. Admin only.", guilds=guilds)
+@bot.tree.command(name="removeseasonlootfrom", description="Remove a unique item from another player's season loot. Admin only.", guilds=guilds)
 @app_commands.describe(user="The player to remove loot from", item_name="Name of the item to remove", shiny="Is the item shiny?")
 @app_commands.autocomplete(item_name=item_name_autocomplete)
 @require_ppe_roles(admin_required=True)
-async def removeseasonlootfor(
+async def removeseasonlootfrom(
         interaction: discord.Interaction,
         user: discord.Member,
         item_name: str,
         shiny: bool = False
     ):
-    await removeseasonlootfor_cmd.command(interaction, user, item_name, shiny)
+    await removeseasonlootfrom_cmd.command(interaction, user, item_name, shiny)
 
-@bot.tree.command(name="showseasonloot", description="Show all unique items in your season loot collection.", guilds=guilds)
+@bot.tree.command(name="myloot", description="Show all loot for your active PPE.", guilds=guilds)
 @require_ppe_roles(player_required=True)
-async def showseasonloot(interaction: discord.Interaction):
-    await showseasonloot_cmd.command(interaction)
-
-@bot.tree.command(name="viewquestsfor", description="Show quests for a specific player. Admin only.", guilds=guilds)
-@app_commands.describe(member="The player whose quests you want to view")
-@require_ppe_roles(admin_required=True)
-async def viewquestsfor(interaction: discord.Interaction, member: discord.Member):
-    await viewquestsfor_cmd.command(interaction, member)
-
-@bot.tree.command(name="resetquests", description="Reset sections of your own quests.", guilds=guilds)
-@require_ppe_roles(player_required=True)
-async def resetquests(interaction: discord.Interaction):
-    await resetquestfor_cmd.command_self(interaction)
-
-@bot.tree.command(name="resetquestfor", description="Reset quests for a specific player. Admin only.", guilds=guilds)
-@app_commands.describe(member="The player whose quests to reset")
-@require_ppe_roles(admin_required=True)
-async def resetquestfor(interaction: discord.Interaction, member: discord.Member):
-    await resetquestfor_cmd.command(interaction, member)
-
-@bot.tree.command(name="resetallquests", description="Reset quest data for all players. Admin only.", guilds=guilds)
-@app_commands.default_permissions(administrator=True)
-@require_ppe_roles(admin_required=True)
-async def resetallquests(interaction: discord.Interaction):
-    await resetquests_cmd.command(interaction)
+async def myloot(interaction: discord.Interaction):
+    await myloot_cmd.command(interaction)
 
 @bot.tree.command(name="managequests", description="View or update quest settings and leaderboard points. Admin only.", guilds=guilds)
-@app_commands.describe(regular_quests="Target number of active regular item quests")
-@app_commands.describe(shiny_quests="Target number of active shiny item quests")
-@app_commands.describe(skin_quests="Target number of active skin quests")
-@app_commands.describe(num_resets="How many quest resets each player gets")
-@app_commands.describe(regular_points="Points per completed regular quest on /questleaderboard")
-@app_commands.describe(shiny_points="Points per completed shiny quest on /questleaderboard")
-@app_commands.describe(skin_points="Points per completed skin quest on /questleaderboard")
 @require_ppe_roles(admin_required=True)
-async def managequests(
-    interaction: discord.Interaction,
-    regular_quests: int | None = None,
-    shiny_quests: int | None = None,
-    skin_quests: int | None = None,
-    num_resets: int | None = None,
-    regular_points: int | None = None,
-    shiny_points: int | None = None,
-    skin_points: int | None = None,
-):
-    await managequests_cmd.command(
-        interaction,
-        regular_quests,
-        shiny_quests,
-        skin_quests,
-        num_resets,
-        regular_points,
-        shiny_points,
-        skin_points,
-    )
+async def managequests(interaction: discord.Interaction):
+    await managequests_cmd.command(interaction)
 
-@bot.tree.command(name="realmsharklink", description="Generate a RealmShark link token for your account.", guilds=guilds)
+@bot.tree.command(name="manageseason", description="Open season admin controls (reset season, point settings, contests, picture suggestions).", guilds=guilds)
+@require_ppe_roles(admin_required=True)
+async def manageseason(interaction: discord.Interaction):
+    await manageseason_cmd.command(interaction)
+
+@bot.tree.command(name="mysniffer", description="Open your sniffer setup and character configuration menu.", guilds=guilds)
 @require_ppe_roles(player_required=True)
-async def realmsharklink(interaction: discord.Interaction):
-    await realmshark_cmd.generate_link_token(interaction)
+async def mysniffer(interaction: discord.Interaction):
+    await mysniffer_cmd.command(interaction)
 
-@bot.tree.command(name="realmsharkenabled", description="Enable or disable RealmShark ingest for this guild.", guilds=guilds)
+@bot.tree.command(name="managesniffer", description="Open admin sniffer controls for this guild.", guilds=guilds)
 @require_ppe_roles(admin_required=True)
-async def realmsharkenabled(interaction: discord.Interaction, enabled: bool):
-    await realmshark_cmd.set_enabled(interaction, enabled)
-
-@bot.tree.command(name="realmsharkchannel", description="Set channel for RealmShark announcements (omit to reset default).", guilds=guilds)
-@app_commands.describe(channel="Optional channel for RealmShark announcements")
-@require_ppe_roles(admin_required=True)
-async def realmsharkchannel(interaction: discord.Interaction, channel: discord.TextChannel | None = None):
-    await realmshark_cmd.set_announce_channel(interaction, channel)
-
-@bot.tree.command(name="realmsharkstatus", description="Show RealmShark integration status for this guild.", guilds=guilds)
-@require_ppe_roles(admin_required=True)
-async def realmsharkstatus(interaction: discord.Interaction):
-    await realmshark_cmd.status(interaction)
-
-@bot.tree.command(name="realmsharkconfigure", description="Manage RealmShark character mappings and pending loot.", guilds=guilds)
-@app_commands.describe(mode="Panel start mode (defaults to Show All)")
-@app_commands.choices(mode=[
-    app_commands.Choice(name="Show All", value="show_all"),
-    app_commands.Choice(name="Show Pending", value="show_pending"),
-])
-@require_ppe_roles(player_required=True)
-async def realmsharkconfigure(
-    interaction: discord.Interaction,
-    mode: app_commands.Choice[str] | None = None,
-):
-    selected_mode = mode.value if mode is not None else "show_all"
-    await realmshark_cmd.open_panel(interaction, selected_mode)
-
-@bot.tree.command(name="realmsharkadminview", description="Manage a user's RealmShark mappings and pending loot.", guilds=guilds)
-@app_commands.describe(member="Player to manage")
-@app_commands.describe(mode="Panel start mode (defaults to Show All)")
-@app_commands.choices(mode=[
-    app_commands.Choice(name="Show All", value="show_all"),
-    app_commands.Choice(name="Show Pending", value="show_pending"),
-])
-@require_ppe_roles(admin_required=True)
-async def realmsharkadminview(
-    interaction: discord.Interaction,
-    member: discord.Member,
-    mode: app_commands.Choice[str] | None = None,
-):
-    selected_mode = mode.value if mode is not None else "show_all"
-    await realmshark_cmd.admin_panel(interaction, member, selected_mode)
-
-@bot.tree.command(name="realmsharkunlink", description="Revoke a specific RealmShark link token.", guilds=guilds)
-@require_ppe_roles(admin_required=True)
-async def realmsharkunlink(interaction: discord.Interaction, token: str):
-    await realmshark_cmd.unlink_token(interaction, token)
-
-@bot.tree.command(name="realmsharkreset", description="Reset all RealmShark integration data for this guild.", guilds=guilds)
-@require_ppe_roles(admin_required=True)
-async def realmsharkreset(interaction: discord.Interaction):
-    await realmshark_cmd.reset_all(interaction)
-
-@bot.tree.command(name="shareseasonloot", description="Generate a visual loot table showing all your season loot items.", guilds=guilds)
-@app_commands.describe(include_skins="Include skin items in the loot background", include_limited="Include limited items in the loot background")
-@require_ppe_roles(player_required=True)
-async def shareseasonloot(interaction: discord.Interaction, include_skins: bool = False, include_limited: bool = False):
-    await shareseasonloot_cmd.command(interaction, include_skins, include_limited)
-
-@bot.tree.command(name="seasonleaderboard", description="Show leaderboard ranked by unique items collected.", guilds=guilds)
-async def seasonleaderboard(interaction: discord.Interaction):
-    await seasonleaderboard_cmd.command(interaction)
-
-@bot.tree.command(name="questleaderboard", description="Show leaderboard ranked by quests completed.", guilds=guilds)
-async def questleaderboard(interaction: discord.Interaction):
-    await questleaderboard_cmd.command(interaction)
-
-@bot.tree.command(name="resetseason", description="Reset season data, teams, and RealmShark links/settings. Server owner/admin only.", guilds=guilds)
-@app_commands.describe(clear_realmshark_links="If true, unlink all RealmShark integrations and remove all mappings")
-@commands.has_permissions(administrator=True)
-async def resetseason(interaction: discord.Interaction, clear_realmshark_links: bool = False):
-    await resetseason_cmd.command(interaction, clear_realmshark_links)
-
-# --- Migrate apostrophes ---
-@bot.tree.command(name="migrateapostrophes", description="Normalize all apostrophes in player records. Admin only.", guilds=guilds)
-@require_ppe_roles(admin_required=True)
-async def migrate_apostrophes(interaction: discord.Interaction):
-    await migrateapostrophes_cmd.command(interaction)
+async def managesniffer(interaction: discord.Interaction):
+    await managesniffer_cmd.command(interaction)
 
 ##################
 #### TEAMS ####
 ##################
 
-# --- Add team ---
-@bot.tree.command(name="addteam", description="Create a new team for the PPE contest. Admin only.", guilds=guilds)
-@app_commands.describe(team_name="Name of the team", team_leader="The team leader")
+@bot.tree.command(name="manageteams", description="Open admin menu to create and manage teams. Admin only.", guilds=guilds)
 @require_ppe_roles(admin_required=True)
-async def addteam(interaction: discord.Interaction, team_name: str, team_leader: discord.Member):
-    await addteam_cmd.command(interaction, team_name, team_leader)
-
-# --- Add player to team ---
-@bot.tree.command(name="addplayer_team", description="Add a player to a team. Team leaders and admins only.", guilds=guilds)
-@app_commands.describe(player="The player to add to the team", team_name="Name of the team")
-@app_commands.autocomplete(team_name=team_name_autocomplete)
-@require_ppe_roles()
-async def addplayer_team(interaction: discord.Interaction, player: discord.Member, team_name: str):
-    await addplayer_team_cmd.command(interaction, player, team_name)
-
-# --- Remove player from team ---
-@bot.tree.command(name="leaveteam", description="Remove a player from their team. Admin only.", guilds=guilds)
-@app_commands.describe(player="The player to remove from teams")
-@require_ppe_roles(admin_required=True)
-async def leaveteam(interaction: discord.Interaction, player: discord.Member):
-    await leaveteam_cmd.command(interaction, player)
-
-# --- Team leaderboard ---
-@bot.tree.command(name="teamleaderboard", description="Show the team leaderboard.", guilds=guilds)
-async def teamleaderboard(interaction: discord.Interaction):
-    await teamleaderboard_cmd.command(interaction)
+async def manageteams(interaction: discord.Interaction):
+    await manageteams_cmd.command(interaction)
 
 # --- My team ---
 @bot.tree.command(name="myteam", description="Show your team members and their rankings. Optional: specify a team name to view.", guilds=guilds)
@@ -650,38 +487,43 @@ async def teamleaderboard(interaction: discord.Interaction):
 async def myteam(interaction: discord.Interaction, team_name: str = None):
     await myteam_cmd.command(interaction, team_name)
 
-# --- Update team name ---
-@bot.tree.command(name="updateteam", description="Update a team's name. Team leaders and admins only.", guilds=guilds)
-@app_commands.describe(old_name="Current team name", new_name="New team name")
-@app_commands.autocomplete(old_name=team_name_autocomplete)
-@require_ppe_roles()
-async def updateteam(interaction: discord.Interaction, old_name: str, new_name: str):
-    await updateteam_cmd.command(interaction, old_name, new_name)
-
-# --- Delete team ---
-@bot.tree.command(name="deleteteam", description="Delete a team and remove all its members. Admin only.", guilds=guilds)
-@app_commands.describe(team_name="Name of the team to delete")
+# --- Add player to team ---
+@bot.tree.command(name="addtoteam", description="Add a player to a team. Admin only.", guilds=guilds)
+@app_commands.describe(
+    team_name="Name of the team to add to",
+    player="The Discord user to add (mention or name)",
+    player_id="Alternative: Discord ID of player (if not using player parameter)"
+)
 @app_commands.autocomplete(team_name=team_name_autocomplete)
 @require_ppe_roles(admin_required=True)
-async def deleteteam(interaction: discord.Interaction, team_name: str):
-    await deleteteam_cmd.command(interaction, team_name)
+async def addtoteam(
+    interaction: discord.Interaction,
+    team_name: str,
+    player: discord.User | None = None,
+    player_id: int | None = None,
+):
+    await addtoteam_cmd.command(interaction, team_name, player, player_id)
+
+# --- Remove player from team ---
+@bot.tree.command(name="removefromteam", description="Remove a player from a team. Admin only.", guilds=guilds)
+@app_commands.describe(
+    team_name="Name of the team to remove from",
+    player="The Discord user to remove (mention or name)",
+    player_id="Alternative: Discord ID of player (if not using player parameter)"
+)
+@app_commands.autocomplete(team_name=team_name_autocomplete)
+@require_ppe_roles(admin_required=True)
+async def removefromteam(
+    interaction: discord.Interaction,
+    team_name: str,
+    player: discord.User | None = None,
+    player_id: int | None = None,
+):
+    await removefromteam_cmd.command(interaction, team_name, player, player_id)
 
 ###############
 #### ROLES ####
 ###############
-
-# --- Give PPE Admin role ---
-@bot.tree.command(name="giveppeadminrole", description="Give the PPE Admin role to a member. Admin only.", guilds=guilds)
-@commands.has_permissions(manage_roles=True)
-@require_ppe_roles()
-async def give_ppe_admin_role(interaction: discord.Interaction, member: discord.Member):
-    await giveppeadminrole_cmd.command(interaction, member)
-
-# --- Remove PPE Admin role ---
-@bot.tree.command(name="removeppeadminrole", description="Remove the PPE Admin role from a member. Admin only.", guilds=guilds)
-@commands.has_permissions(manage_roles=True)
-async def remove_ppe_admin_role(interaction: discord.Interaction, member: discord.Member):
-    await removeppeadminrole_cmd.command(interaction, member)
 
 # --- Command: list roles ---
 @bot.tree.command(name="listroles", description="List all roles in this server.", guilds=guilds)

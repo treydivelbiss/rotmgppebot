@@ -358,3 +358,6 @@ async def save_teams(interaction: discord.Interaction, teams: Dict[str, TeamData
     }
     async with get_lock(guild_id):
         await asyncio.to_thread(_write_atomic_json, path, temp_path, json_ready)
+
+
+# Channel-level settings helpers were moved to utils.settings.channel_settings.

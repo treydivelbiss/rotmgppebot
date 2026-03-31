@@ -10,7 +10,7 @@ from typing import Any, Awaitable, Callable, Dict
 
 from dataclass import PlayerData
 from utils.calc_points import calc_points, load_loot_points, normalize_item_name
-from utils.guild_config import get_quest_targets, get_realmshark_settings_by_id, set_realmshark_settings_by_id
+from utils.guild_config import get_quest_targets, get_realmshark_settings_by_id, load_guild_config, set_realmshark_settings_by_id
 from utils.loot_data import LOOT
 from utils.player_manager import player_manager
 from utils.player_records import ensure_player_exists, load_player_records, save_player_records
@@ -391,6 +391,7 @@ async def _addseasonloot_for_user(guild_id: int, user_id: int, item_name: str, s
 
     player_data.unique_items.add(item_key)
     regular_target, shiny_target, skin_target = await get_quest_targets(interaction)
+    config = await load_guild_config(interaction)
     update_quests_for_item(
         player_data,
         item_name,
@@ -398,6 +399,12 @@ async def _addseasonloot_for_user(guild_id: int, user_id: int, item_name: str, s
         target_item_quests=regular_target,
         target_shiny_quests=shiny_target,
         target_skin_quests=skin_target,
+        global_quests={
+            "enabled": bool(config["quest_settings"].get("use_global_quests", False)),
+            "regular": list(config["quest_settings"].get("global_regular_quests", [])),
+            "shiny": list(config["quest_settings"].get("global_shiny_quests", [])),
+            "skin": list(config["quest_settings"].get("global_skin_quests", [])),
+        },
     )
 
     await save_player_records(interaction, records)
@@ -685,7 +692,7 @@ async def ingest_loot_event(payload: Dict[str, Any], notifier: Notifier | None =
                     prompt = (
                         f"<@{linked_user_id}> New character detected (`{character_id}`). "
                         "Loot is currently tracked as seasonal. "
-                        "Use `/realmsharkconfigure` to map this character to a PPE or keep it seasonal."
+                        "Use `/mysniffer` -> `Configure Characters` to map this character to a PPE or keep it seasonal."
                     )
                     await notifier(
                         guild_id,
@@ -776,12 +783,9 @@ async def ingest_loot_event(payload: Dict[str, Any], notifier: Notifier | None =
             f"It was logged to {destination}."
         )
 
-        if mode == "addloot" and mapped_ppe_id is not None:
-            points_added = float(result.get("points_added", 0) or 0)
-            new_points = float(result.get("total_points", 0) or 0)
-            old_points = new_points - points_added
+        if routing_reason == "unmapped_character":
             announcement += (
-                f" Points: {_format_points(old_points)} -> {_format_points(new_points)}"
+                " | new character is still unmapped, use /mysniffer -> Configure Characters to choose PPE vs seasonal"
             )
 
         if bool(result.get("already_present", False)):
@@ -791,7 +795,7 @@ async def ingest_loot_event(payload: Dict[str, Any], notifier: Notifier | None =
             )
             if routing_reason == "unmapped_character":
                 announcement += (
-                    " | new character is still unmapped, use /realmsharkconfigure to choose PPE vs seasonal"
+                    " | new character is still unmapped, use /mysniffer -> Configure Characters to choose PPE vs seasonal"
                 )
 
         if ingest_warning is not None:

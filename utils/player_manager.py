@@ -4,7 +4,9 @@ import discord
 from dataclass import Loot, PPEData, PlayerData
 from utils.player_records import load_player_records, save_player_records, ensure_player_exists, get_active_ppe
 from utils.quest_manager import update_quests_for_item
-from utils.guild_config import get_quest_targets
+from utils.guild_config import get_max_ppes, get_quest_targets
+from utils.guild_config import load_guild_config
+from utils.points_service import recompute_ppe_points
 
 class PlayerManager:
     """Centralized manager for player data operations to prevent race conditions."""
@@ -61,14 +63,11 @@ class PlayerManager:
             if not active_ppe:
                 raise LookupError("❌ Could not find your active PPE record.")
             
+            old_total = active_ppe.points
+
             # Add loot
             from utils.player_records import get_item_from_ppe
             match = get_item_from_ppe(active_ppe, item_name, divine, shiny)
-            will_be_duplicate = match is not None
-            if will_be_duplicate and points != 1:
-                points_to_add = points / 2
-            else:
-                points_to_add = points
             if match:
                 match.quantity += 1
             else:
@@ -77,10 +76,9 @@ class PlayerManager:
             # Update unique_items cache
             player_data.unique_items.add((item_name, shiny))
             
-            # Add points
-            import math
-            points_rounded = math.floor(points_to_add * 2) / 2
-            active_ppe.points += points_rounded
+            guild_config = await load_guild_config(interaction)
+            recompute_ppe_points(active_ppe, guild_config)
+            points_rounded = round(active_ppe.points - old_total, 2)
 
             regular_target, shiny_target, skin_target = await get_quest_targets(interaction)
             quest_update = update_quests_for_item(
@@ -90,6 +88,12 @@ class PlayerManager:
                 target_item_quests=regular_target,
                 target_shiny_quests=shiny_target,
                 target_skin_quests=skin_target,
+                global_quests={
+                    "enabled": bool(guild_config["quest_settings"].get("use_global_quests", False)),
+                    "regular": list(guild_config["quest_settings"].get("global_regular_quests", [])),
+                    "shiny": list(guild_config["quest_settings"].get("global_shiny_quests", [])),
+                    "skin": list(guild_config["quest_settings"].get("global_skin_quests", [])),
+                },
             )
             
             return item_name, points_rounded, active_ppe, quest_update
@@ -119,15 +123,7 @@ class PlayerManager:
             if not item:
                 raise ValueError(f"❌ You don't have any **{item_name}** in your active PPE's loot.")
             
-            # Calculate points to remove based on duplicate logic
-            # If this is the only one (quantity will be 0 after removal), use full points
-            # If there will still be more (quantity > 1), use halved points (unless base points = 1)
-            will_be_duplicate = item.quantity > 1
-            
-            if points != 1 and will_be_duplicate:
-                points_to_remove = points / 2
-            else:
-                points_to_remove = points
+            old_total = active_ppe.points
             
             item.quantity -= 1
             if item.quantity <= 0:
@@ -148,10 +144,9 @@ class PlayerManager:
                 if not item_exists_elsewhere:
                     player_data.unique_items.discard(item_key)
             
-            # Remove points
-            import math
-            points_rounded = math.floor(points_to_remove * 2) / 2
-            active_ppe.points -= points_rounded
+            guild_config = await load_guild_config(interaction)
+            recompute_ppe_points(active_ppe, guild_config)
+            points_rounded = round(old_total - active_ppe.points, 2)
             
             return item_name, points_rounded, active_ppe
         
@@ -183,10 +178,11 @@ class PlayerManager:
             key = ensure_player_exists(records, user_id)
             
             player_data = records[key]
+            max_ppes = await get_max_ppes(interaction)
             
             # PPE limit check
-            if len(player_data.ppes) >= 10:
-                raise ValueError("⚠️ You've reached the limit of 10 PPEs.")
+            if len(player_data.ppes) >= max_ppes:
+                raise ValueError(f"⚠️ You've reached the limit of {max_ppes} PPEs.")
             
             # Create new PPE
             next_id = max((ppe.id for ppe in player_data.ppes), default=0) + 1
