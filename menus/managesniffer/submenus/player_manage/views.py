@@ -251,7 +251,19 @@ class ManagePlayerSnifferView(OwnerBoundView):
         if target_member is None:
             await interaction.response.send_message("Player is no longer in this server.", ephemeral=True)
             return
-        await admin_panel(interaction, target_member, "show_all")
+
+        # Check if player has pending characters
+        settings, links = await load_sniffer_settings(interaction)
+        user_links = iter_user_links(links, self.target_user_id)
+        has_pending = False
+        for _, link_data in user_links:
+            if link_data.get("pending_characters", False):
+                has_pending = True
+                break
+
+    # Show pending characters if any, otherwise show all
+    view_mode = "show_pending" if has_pending else "show_all"
+    await admin_panel(interaction, target_member, view_mode)
 
     @discord.ui.button(label="Back", style=discord.ButtonStyle.secondary)
     async def back(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:

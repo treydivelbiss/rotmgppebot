@@ -6,10 +6,12 @@ import discord
 
 from dataclass import PPEData, PlayerData
 from menus.menu_utils.character_carousel import CharacterCarouselPolicy
+from utils.ppe_types import ppe_type_short_label, resolve_edit_ppe_type
 from menus.manageplayer.common import (
     character_embed_for_target,
     close_manageplayer_menu,
     penalty_input_defaults,
+    ppe_type_text,
     realmshark_connected_ppe_ids,
     send_followup_text,
     send_target_loot_markdown_followup,
@@ -20,6 +22,7 @@ from menus.manageplayer.targets import ManagedPlayerTarget
 from menus.menu_utils import OwnerBoundView
 from utils.guild_config import load_guild_config
 from utils.helpers.shareloot_image import generate_loot_share_image, variant_image_label
+from utils.player_statistics import build_character_wrapped_embed
 from utils.penalty_embed import build_penalty_infographic_embed
 from utils.player_records import ensure_player_exists, load_player_records, save_player_records
 from utils.points_service import apply_penalties_to_ppe, parse_penalty_inputs, recompute_ppe_points
@@ -37,6 +40,12 @@ class ManagePlayerPenaltiesModal(discord.ui.Modal, title="Set PPE Penalties"):
         required=True,
         max_length=3,
     )
+    ppe_type = discord.ui.TextInput(
+        label="PPE Type",
+        placeholder="Examples: PPE, Duo PPE, DPE, UPE, SPE, NPE, D+SPE",
+        required=True,
+        max_length=32,
+    )
 
     def __init__(
         self,
@@ -44,6 +53,7 @@ class ManagePlayerPenaltiesModal(discord.ui.Modal, title="Set PPE Penalties"):
         owner_id: int,
         target: ManagedPlayerTarget,
         ppe_id: int,
+        current_ppe_type: str,
         defaults: dict[str, float],
         max_ppes: int,
         source_message: discord.Message | None,
@@ -60,6 +70,7 @@ class ManagePlayerPenaltiesModal(discord.ui.Modal, title="Set PPE Penalties"):
         self.num_exalts.default = str(int(defaults["num_exalts"]))
         self.percent_loot.default = f"{float(defaults['percent_loot']):g}"
         self.incombat_reduction.default = f"{float(defaults['incombat_reduction']):g}"
+        self.ppe_type.default = ppe_type_short_label(current_ppe_type)
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         parsed_inputs, error = parse_penalty_inputs(
@@ -80,6 +91,18 @@ class ManagePlayerPenaltiesModal(discord.ui.Modal, title="Set PPE Penalties"):
         ppe = find_ppe_or_raise(player_data, self.ppe_id)
 
         guild_config = await load_guild_config(interaction)
+        ppe_settings = guild_config.get("ppe_settings", {}) if isinstance(guild_config.get("ppe_settings", {}), dict) else {}
+        resolved_type, type_error = resolve_edit_ppe_type(
+            self.ppe_type.value,
+            current_type=getattr(ppe, "ppe_type", None),
+            enabled=bool(ppe_settings.get("enable_ppe_types", True)),
+            allowed_types=ppe_settings.get("allowed_ppe_types", []),
+        )
+        if type_error:
+            await interaction.response.send_message(type_error, ephemeral=False)
+            return
+
+        ppe.ppe_type = resolved_type
 
         penalty_result = apply_penalties_to_ppe(
             ppe,
@@ -108,7 +131,7 @@ class ManagePlayerPenaltiesModal(discord.ui.Modal, title="Set PPE Penalties"):
         from menus.manageplayer.common import display_class_name, format_points
 
         await interaction.response.send_message(
-            f"✅ Updated penalties for PPE #{ppe.id} ({display_class_name(ppe)}). "
+            f"✅ Updated PPE #{ppe.id} ({display_class_name(ppe)}, {ppe_type_text(ppe, compact=True)}). "
             f"New total: {format_points(points_breakdown['total'])} points.",
             embed=embed,
             ephemeral=False,
@@ -196,7 +219,7 @@ class ManagePlayerCharactersView(OwnerBoundView):
     async def home(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
         await open_manageplayer_home(interaction, owner_id=interaction.user.id, target=self.target, max_ppes=self.max_ppes)
 
-    @discord.ui.button(label="Show Loot", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Statistics", style=discord.ButtonStyle.primary, row=0)
     async def show_loot(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
         selected = self.current_ppe()
         view = ManagePlayerCharacterLootView(
@@ -226,6 +249,7 @@ class ManagePlayerCharactersView(OwnerBoundView):
             owner_id=interaction.user.id,
             target=self.target,
             ppe_id=int(selected.id),
+            current_ppe_type=str(getattr(selected, "ppe_type", "regular")),
             defaults=defaults,
             max_ppes=self.max_ppes,
             source_message=interaction.message,
@@ -262,11 +286,12 @@ class ManagePlayerCharacterLootView(OwnerBoundView):
         from menus.manageplayer.common import display_class_name, format_points
 
         embed = discord.Embed(
-            title=f"Show Loot for PPE #{ppe.id}",
+            title=f"Statistics for PPE #{ppe.id}",
             description="Choose an action.",
             color=discord.Color.blue(),
         )
         embed.add_field(name="Character", value=f"{display_class_name(ppe)}", inline=True)
+        embed.add_field(name="Type", value=ppe_type_text(ppe, compact=True), inline=True)
         embed.add_field(name="Points", value=f"{format_points(ppe.points)}", inline=True)
         return embed
 
@@ -286,7 +311,8 @@ class ManagePlayerCharacterLootView(OwnerBoundView):
             embed_title="🎒 PPE Loot Share",
             embed_color=0x00FF00,
             embed_description=(
-                f"**{self.target.display_name}'s** {display_class_name(selected)} PPE #{selected.id}"
+                f"**{self.target.display_name}'s** {display_class_name(selected)} PPE #{selected.id} "
+                f"[{ppe_type_text(selected, compact=True)}]"
             ),
             total_items_label="Total Loot",
             all_variant_extra_lines=[f"**Points:** {format_points(selected.points)}"],
@@ -330,7 +356,21 @@ class ManagePlayerCharacterLootView(OwnerBoundView):
         selected = find_ppe_or_raise(refreshed, self.ppe_id)
         await send_target_loot_markdown_followup(interaction, ppe=selected)
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=2)
+    @discord.ui.button(label="Show Character Statistics", style=discord.ButtonStyle.success, row=2)
+    async def show_character_statistics(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
+        refreshed = await load_target_player_data(interaction, self.target.user_id)
+        selected = find_ppe_or_raise(refreshed, self.ppe_id)
+        guild_config = await load_guild_config(interaction)
+        embed = build_character_wrapped_embed(
+            player_data=refreshed,
+            ppe=selected,
+            display_name=self.target.display_name,
+            guild_config=guild_config,
+        )
+        await close_manageplayer_menu(interaction)
+        await interaction.followup.send(embed=embed, ephemeral=False)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=3)
     async def cancel(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
         await close_manageplayer_menu(interaction)
 

@@ -14,14 +14,16 @@ from menus.myinfo.common import (
     find_ppe_or_raise,
     format_points,
     penalty_input_defaults,
+    ppe_type_text,
     refresh_player_data,
     send_myloot_markdown_followup,
     temporarily_switch_active_ppe_and_share,
 )
 from menus.myinfo.entry import open_myinfo_home
-from menus.myinfo.submenus.character.modals import ManagePPEPenaltiesModal, NewPPEFromMyInfoModal
+from menus.myinfo.submenus.character.modals import ManagePPEPenaltiesModal, launch_new_ppe_modal_flow
 from utils.guild_config import get_max_ppes, load_guild_config
 from utils.helpers.shareloot_image import variant_image_label
+from utils.player_statistics import build_character_wrapped_embed
 from utils.player_records import ensure_player_exists, load_player_records, save_player_records
 
 
@@ -86,7 +88,7 @@ class ManageCharactersView(OwnerBoundView):
         max_ppes = await get_max_ppes(interaction)
         await open_myinfo_home(interaction, max_ppes=max_ppes)
 
-    @discord.ui.button(label="Show Loot", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Statistics", style=discord.ButtonStyle.primary, row=0)
     async def show_loot(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
         selected = self.current_ppe()
         view = CharacterLootVariantView(
@@ -124,12 +126,12 @@ class ManageCharactersView(OwnerBoundView):
 
     @discord.ui.button(label="New PPE", style=discord.ButtonStyle.success, row=1)
     async def new_ppe(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
-        modal = NewPPEFromMyInfoModal(
+        await launch_new_ppe_modal_flow(
+            interaction,
             owner_id=interaction.user.id,
             source_message=interaction.message,
             connected_ppe_ids=self.connected_ppe_ids,
         )
-        await interaction.response.send_modal(modal)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=1)
     async def cancel(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
@@ -146,11 +148,12 @@ class CharacterLootVariantView(OwnerBoundView):
 
     def current_embed(self, ppe: PPEData) -> discord.Embed:
         embed = discord.Embed(
-            title=f"Show Loot for PPE #{ppe.id}",
+            title=f"Statistics for PPE #{ppe.id}",
             description="Choose an action.",
             color=discord.Color.blue(),
         )
         embed.add_field(name="Character", value=f"{display_class_name(ppe)}", inline=True)
+        embed.add_field(name="Type", value=ppe_type_text(ppe, compact=True), inline=True)
         embed.add_field(name="Points", value=f"{format_points(ppe.points)}", inline=True)
         return embed
 
@@ -200,7 +203,21 @@ class CharacterLootVariantView(OwnerBoundView):
         selected = find_ppe_or_raise(refreshed, self.ppe_id)
         await send_myloot_markdown_followup(interaction, selected)
 
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=2)
+    @discord.ui.button(label="Show Character Statistics", style=discord.ButtonStyle.success, row=2)
+    async def show_character_statistics(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
+        refreshed = await refresh_player_data(interaction, interaction.user.id)
+        selected = find_ppe_or_raise(refreshed, self.ppe_id)
+        guild_config = await load_guild_config(interaction)
+        embed = build_character_wrapped_embed(
+            player_data=refreshed,
+            ppe=selected,
+            display_name=interaction.user.display_name,
+            guild_config=guild_config,
+        )
+        await close_myinfo_menu(interaction)
+        await interaction.followup.send(embed=embed, ephemeral=False)
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=3)
     async def cancel(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
         await close_myinfo_menu(interaction)
 

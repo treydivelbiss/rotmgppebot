@@ -25,7 +25,7 @@ class MyInfoHomeView(OwnerBoundView):
         super().__init__(owner_id=owner_id, timeout=600, owner_error="This menu belongs to another user.")
         self.max_ppes = max_ppes
 
-    @discord.ui.button(label="Show Season Loot", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="Show Season Stats", style=discord.ButtonStyle.primary, row=0)
     async def show_season_loot(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
         from menus.myinfo.submenus.season.views import SeasonLootVariantView
 
@@ -122,14 +122,13 @@ class NoCharactersView(OwnerBoundView):
 
     @discord.ui.button(label="New PPE", style=discord.ButtonStyle.success, row=0)
     async def new_ppe(self, interaction: discord.Interaction, _button: discord.ui.Button) -> None:
-        from menus.myinfo.submenus.character.modals import NewPPEFromMyInfoModal
+        from menus.myinfo.submenus.character.modals import launch_new_ppe_modal_flow
 
-        await interaction.response.send_modal(
-            NewPPEFromMyInfoModal(
-                owner_id=interaction.user.id,
-                source_message=interaction.message,
-                connected_ppe_ids=set(),
-            )
+        await launch_new_ppe_modal_flow(
+            interaction,
+            owner_id=interaction.user.id,
+            source_message=interaction.message,
+            connected_ppe_ids=set(),
         )
 
     @discord.ui.button(label="Home", style=discord.ButtonStyle.secondary, row=1)

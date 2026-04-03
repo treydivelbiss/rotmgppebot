@@ -5,12 +5,19 @@ from typing import Any, Dict
 
 import discord
 
+from utils.ppe_types import all_ppe_types, normalize_allowed_ppe_types, normalize_ppe_type_multipliers
+
 from utils.player_records import DATA_DIR, get_lock
 from utils.contest_leaderboards import normalize_contest_leaderboard_id
 
+DEFAULT_MAX_PPE_CHARACTERS = 10
+
 _DEFAULT_CONFIG: Dict[str, Any] = {
     "ppe_settings": {
-        "max_ppes": 10,
+        "max_ppes": DEFAULT_MAX_PPE_CHARACTERS,
+        "enable_ppe_types": True,
+        "allowed_ppe_types": all_ppe_types(),
+        "ppe_type_multipliers": normalize_ppe_type_multipliers({}),
     },
     "quest_settings": {
         "regular_target": 8,
@@ -35,6 +42,9 @@ _DEFAULT_CONFIG: Dict[str, Any] = {
     "contest_settings": {
         "default_contest_leaderboard": None,
         "team_contest_include_quest_points": False,
+        "join_contest_channel_id": 0,
+        "join_contest_message_id": 0,
+        "join_contest_emoji": "✅",
     },
     "points_settings": {
         "global": {
@@ -110,7 +120,7 @@ def _normalized_targets(config: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _normalized_ppe_settings(config: Dict[str, Any]) -> Dict[str, int]:
+def _normalized_ppe_settings(config: Dict[str, Any]) -> Dict[str, Any]:
     settings = config.get("ppe_settings", {}) if isinstance(config.get("ppe_settings", {}), dict) else {}
 
     try:
@@ -121,8 +131,14 @@ def _normalized_ppe_settings(config: Dict[str, Any]) -> Dict[str, int]:
     if parsed_max <= 0:
         parsed_max = _DEFAULT_CONFIG["ppe_settings"]["max_ppes"]
 
+    allowed_types = normalize_allowed_ppe_types(settings.get("allowed_ppe_types"))
+    multipliers = normalize_ppe_type_multipliers(settings.get("ppe_type_multipliers"))
+
     return {
         "max_ppes": parsed_max,
+        "enable_ppe_types": bool(settings.get("enable_ppe_types", True)),
+        "allowed_ppe_types": allowed_types,
+        "ppe_type_multipliers": multipliers,
     }
 
 
@@ -244,6 +260,19 @@ def _merge_defaults(raw: Dict[str, Any]) -> Dict[str, Any]:
 
 def _normalized_contest_settings(config: Dict[str, Any]) -> Dict[str, Any]:
     settings = config.get("contest_settings", {}) if isinstance(config.get("contest_settings", {}), dict) else {}
+
+    def _as_non_negative_int(value: Any, fallback: int = 0) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return fallback
+        return parsed if parsed >= 0 else fallback
+
+    join_embed_emoji_raw = settings.get("join_contest_emoji", "✅")
+    join_embed_emoji = join_embed_emoji_raw.strip() if isinstance(join_embed_emoji_raw, str) else "✅"
+    if not join_embed_emoji:
+        join_embed_emoji = "✅"
+
     default_choice = normalize_contest_leaderboard_id(settings.get("default_contest_leaderboard"))
     return {
         "default_contest_leaderboard": default_choice,
@@ -253,6 +282,9 @@ def _normalized_contest_settings(config: Dict[str, Any]) -> Dict[str, Any]:
                 _DEFAULT_CONFIG["contest_settings"]["team_contest_include_quest_points"],
             )
         ),
+        "join_contest_channel_id": _as_non_negative_int(settings.get("join_contest_channel_id", 0), 0),
+        "join_contest_message_id": _as_non_negative_int(settings.get("join_contest_message_id", 0), 0),
+        "join_contest_emoji": join_embed_emoji,
     }
 
 
@@ -398,6 +430,26 @@ async def set_quest_targets(
 
     config["quest_settings"] = settings
     return await save_guild_config(interaction, config)
+
+
+async def set_max_ppes(interaction: discord.Interaction, *, max_ppes: int) -> Dict[str, Any]:
+    config = await load_guild_config(interaction)
+    settings = dict(config.get("ppe_settings", {}))
+    settings["max_ppes"] = max(1, int(max_ppes))
+    config["ppe_settings"] = settings
+    return await save_guild_config(interaction, config)
+
+
+async def get_ppe_settings(interaction: discord.Interaction) -> Dict[str, Any]:
+    config = await load_guild_config(interaction)
+    return dict(config["ppe_settings"])
+
+
+async def set_ppe_settings(interaction: discord.Interaction, settings: Dict[str, Any]) -> Dict[str, Any]:
+    config = await load_guild_config(interaction)
+    config["ppe_settings"] = settings
+    saved = await save_guild_config(interaction, config)
+    return dict(saved["ppe_settings"])
 
 
 async def get_quest_points(interaction: discord.Interaction) -> tuple[int, int, int]:
