@@ -56,7 +56,7 @@ from utils.autocomplete import class_autocomplete, item_name_autocomplete, bonus
 
 SERVER1_ID = 1484140162567901224 # ROTMG PPE
 
-guilds = [discord.Object(id=SERVER1_ID), discord.Object(id=SERVER2_ID), discord.Object(id=SERVER3_ID)]
+guilds = [discord.Object(id=SERVER1_ID)]
 
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
