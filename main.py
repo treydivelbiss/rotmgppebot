@@ -54,9 +54,7 @@ from utils.realmshark_notifier import build_realmshark_notifier
 
 from utils.autocomplete import class_autocomplete, item_name_autocomplete, bonus_autocomplete, user_bonus_autocomplete, target_user_bonus_autocomplete, team_name_autocomplete
 
-SERVER1_ID = 879497062117412924 # Last Oasis
-SERVER2_ID = 1435436110829326459 # Test Server
-SERVER3_ID = 1485395885666992248 # My Testing Server
+SERVER1_ID = 1484140162567901224 # ROTMG PPE
 
 guilds = [discord.Object(id=SERVER1_ID), discord.Object(id=SERVER2_ID), discord.Object(id=SERVER3_ID)]
 
