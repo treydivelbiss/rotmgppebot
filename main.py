@@ -54,7 +54,7 @@ from utils.realmshark_notifier import build_realmshark_notifier
 
 from utils.autocomplete import class_autocomplete, item_name_autocomplete, bonus_autocomplete, user_bonus_autocomplete, target_user_bonus_autocomplete, team_name_autocomplete
 
-SERVER1_ID = 1484140162567901224 # ROTMG PPE
+SERVER1_ID = 1492603368051314822 # ROTMG PPE
 
 guilds = [discord.Object(id=SERVER1_ID)]
 
